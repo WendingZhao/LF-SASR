@@ -1,6 +1,6 @@
 ## LF-SASR: Light Field Super-Resolution for Real-World Scenes via Adaptive Modeling
 
-LF-SASR aims to bridge the gap between idealized synthetic datasets and challenging real-world environments, providing practical and efficient solutions for light field super-resolution tasks.
+LF-SASR(Light Field Scenario-Aware Super Resolution) aims to bridge the gap between idealized synthetic datasets and challenging real-world environments, providing practical and efficient solutions for light field super-resolution tasks.
 
 This project is forked from [LF-DMnet](https://github.com/yingqianwang/LF-DMnet)
 
