@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="ccdd0569-0eb4-44d0-a017-92956eb734af" name="ssh -p 37487 root@connect.westc.gpuhub.com">
+        <fileTransfer rootFolder="/root" accessType="SFTP" host="root@connect.westc.gpuhub.com" port="37487" sshConfigId="95debff9-7861-4a56-b990-0a0f1b3d54b1" sshConfig="root@root@connect.westc.gpuhub.com:37487 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="b6f1076f-1147-4dd0-b18d-0511c5d93ac9" name="root@connect.westc.gpuhub.com">
+        <fileTransfer rootFolder="/root" accessType="SFTP" host="root@connect.westc.gpuhub.com" port="22683" sshConfigId="46857a4e-9921-4013-9648-801756d692c2" sshConfig="root@root@connect.westc.gpuhub.com:22683 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
