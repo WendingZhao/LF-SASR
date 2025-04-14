@@ -13,11 +13,11 @@ def parse_args():
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument("--angRes", type=int, default=5, help="angular resolution")
     parser.add_argument("--upfactor", type=int, default=4, help="upscale factor")
-    parser.add_argument('--crop', type=bool, default=True, help="LFs are cropped into patches to save GPU memory")
+    parser.add_argument('--crop', type=bool, default=False, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument("--patchsize", type=int, default=32, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument("--minibatch", type=int, default=20, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument('--input_dir', type=str, default='./input/')
-    parser.add_argument('--save_path', type=str, default='./output/')
+    parser.add_argument('--save_path', type=str, default='../output_papaer_0_0/')
 
     return parser.parse_args()
 
@@ -35,19 +35,25 @@ def demo_test(cfg, sigma_range, noise_range):
         for sigma in sigma_range:
             for noise_level in noise_range:
                 print('Scene: ' + scenes + '\t' + 'blur=' + str(sigma * 4) + '\t' + 'noise=' + str(noise_level * 75))
-                temp = imageio.imread(cfg.input_dir + scenes + '/view_01_01.png')
+                temp = imageio.v2.imread(cfg.input_dir + scenes + '/view_01_01.png')
                 lf_rgb_lr = np.zeros(shape=(cfg.angRes, cfg.angRes, temp.shape[0], temp.shape[1], 3))
 
                 for u in range(cfg.angRes):
                     for v in range(cfg.angRes):
-                        temp = imageio.imread(cfg.input_dir + scenes + '/view_%.2d_%.2d.png' % (u+1, v+1))
+                        temp = imageio.v2.imread(cfg.input_dir + scenes + '/view_%.2d_%.2d.png' % (u+1, v+1))
                         lf_rgb_lr[u, v, :, :, :] = temp
 
                 data = torch.from_numpy(lf_rgb_lr.astype('float32')) / 255.0
                 data = rearrange(data, 'u v h w c -> u v c h w')
 
                 if cfg.crop == False:
+                    # the blur and noise is not input
+                    # this part is under dubugging
+
+                    blur = torch.ones(data.shape[0], u,v).to(cfg.device) * (sigma + 1e-4)
+                    noise = torch.ones(data.shape[0], u,v).to(cfg.device) * (noise_level + 1e-4)
                     lf_rgb_sr = net(data.unsqueeze(0).to(cfg.device))
+                    # lf_rgb_sr = net(data.unsqueeze(0).to(cfg.device),blur.unsqueeze(1),noise.unsqueeze(1))
 
                 else:
                     patchsize = cfg.patchsize
@@ -60,18 +66,45 @@ def demo_test(cfg, sigma_range, noise_range):
                     with torch.no_grad():
                         out_lfs = []
                         for idx_inference in range(num_inference):
-                            torch.cuda.empty_cache()
-                            input_lfs = sub_lfs[idx_inference * mini_batch: (idx_inference + 1) * mini_batch, :, :, :]
-                            blur = torch.ones(input_lfs.shape[0], u, v).to(cfg.device) * (sigma + 1e-4)
-                            noise = torch.ones(input_lfs.shape[0], u, v).to(cfg.device) * (noise_level + 1e-4)
-                            out_temp = net((input_lfs.to(cfg.device), blur.unsqueeze(1), noise.unsqueeze(1)))
-                            out_lfs.append(out_temp.to('cpu'))
+                            torch.cuda.empty_cache()  # 释放未使用的显存
+                            input_lfs = sub_lfs[
+                                        idx_inference * mini_batch : (idx_inference + 1) * mini_batch, :, :, :
+                                        ]
+                            # 创建模糊和噪声参数张量（扩展到当前批次的样本数）
+                            blur = torch.ones(
+                                input_lfs.shape[0], u, v
+                            ).to(cfg.device) * (sigma + 1e-4)  # 防止0值
+                            noise = torch.ones(
+                                input_lfs.shape[0], u, v
+                            ).to(cfg.device) * (noise_level + 1e-4)
+                            # 前向传播（输入包含分块数据、模糊参数、噪声参数）
+                            out_temp = net(
+                                (
+                                    input_lfs.to(cfg.device),
+                                    blur.unsqueeze(1),  # 扩展维度与模型输入匹配
+                                    noise.unsqueeze(1),
+                                )
+                            )
+                            out_lfs.append(out_temp.to('cpu'))  # 将结果移回CPU
 
+                        # 处理剩余不足一个批次的分块
                         if (n1 * n2) % mini_batch:
-                            input_lfs = sub_lfs[(idx_inference + 1) * mini_batch:, :, :, :]
-                            blur = torch.ones(input_lfs.shape[0], u, v).to(cfg.device) * (sigma + 1e-4)
-                            noise = torch.ones(input_lfs.shape[0], u, v).to(cfg.device) * (noise_level + 1e-4)
-                            out_temp = net((input_lfs.to(cfg.device), blur.unsqueeze(1), noise.unsqueeze(1)))
+                            input_lfs = sub_lfs[
+                                        (idx_inference + 1) * mini_batch :, :, :, :
+                                        ]
+                            blur = torch.ones(
+                                input_lfs.shape[0], u, v
+                            ).to(cfg.device) * (sigma + 1e-4)
+                            noise = torch.ones(
+                                input_lfs.shape[0], u, v
+                            ).to(cfg.device) * (noise_level + 1e-4)
+                            out_temp = net(
+                                (
+                                    input_lfs.to(cfg.device),
+                                    blur.unsqueeze(1),
+                                    noise.unsqueeze(1),
+                                )
+                            )
                             out_lfs.append(out_temp.to('cpu'))
 
                     out_lfs = torch.cat(out_lfs, dim=0)
@@ -102,4 +135,6 @@ if __name__ == '__main__':
     # noise_range = [0/75, 15/75, 30/75, 45/75, 60/75]
     sigma_range = [2/4]
     noise_range = [30/75]
+    # sigma_range = [0/4]
+    # noise_range = [0/75]
     demo_test(cfg, sigma_range, noise_range)

@@ -13,21 +13,24 @@ def save_ckpt(args, net, idx_epoch):
         torch.save({'epoch': idx_epoch, 'state_dict': net.state_dict()},
                    './log/' + args.model_name + '_' + str(args.upfactor) + 'xSR.tar')
 
-    if idx_epoch % 100 == 0:
+    if idx_epoch % 50 == 0:
         if args.parallel:
             torch.save({'epoch': idx_epoch, 'state_dict': net.module.state_dict()},
-                       './log_arxiv/' + args.model_name + '_' + str(args.upfactor) + 'xSR' + '_epoch_' + str(idx_epoch) + '.tar')
+                       './log_my/' + args.model_name + '_' + str(args.upfactor) + 'xSR' + '_epoch_' + str(idx_epoch) + '.tar')
         else:
             torch.save({'epoch': idx_epoch, 'state_dict': net.state_dict()},
-                       './log_arxiv/' + args.model_name + '_' + str(args.upfactor) + 'xSR' + '_epoch_' + str(idx_epoch) + '.tar')
+                       './log_my/' + args.model_name + '_' + str(args.upfactor) + 'xSR' + '_epoch_' + str(idx_epoch) + '.tar')
 
 
 def cal_metrics(label, out):
 
     U, V, C, H, W = label.size()
+
+    # cal the ycbcr
     label_y = (65.481 * label[:, :, 0, :, :] + 128.553 * label[:, :, 1, :, :] + 24.966 * label[:, :, 2, :, :] + 16) / 255.0
     out_y = (65.481 * out[:, :, 0, :, :] + 128.553 * out[:, :, 1, :, :] + 24.966 * out[:, :, 2, :, :] + 16) / 255.0
 
+    # the output should be limited to 0 to 1
     label_y = label_y.data.cpu().numpy().clip(0, 1)
     out_y = out_y.data.cpu().numpy().clip(0, 1)
 
@@ -45,16 +48,36 @@ def cal_metrics(label, out):
 
 
 def ImageExtend(Im, bdr):
-    [_, _, h, w] = Im.size()
-    Im_lr = torch.flip(Im, dims=[-1])
-    Im_ud = torch.flip(Im, dims=[-2])
-    Im_diag = torch.flip(Im, dims=[-1, -2])
+    """
+    对图像进行镜像扩展，用于处理边缘区域，使得在后续处理（如卷积）时不会丢失边缘信息。
 
+    参数：
+    Im: 输入图像张量，形状为 (N, C, H, W)。
+    bdr: 边界扩展参数，包含四个元素 [bdr_top, bdr_bottom, bdr_left, bdr_right]，
+         表示上下左右四个方向的扩展量。
+
+    返回：
+    扩展后的图像张量，裁剪后的形状为 (N, C, H + bdr_top + bdr_bottom, W + bdr_left + bdr_right)。
+    """
+
+
+    [_, _, h, w] = Im.size()
+
+    # left right up down diagonal
+    Im_lr = torch.flip(Im, dims=[-1])      # 左右翻转
+    Im_ud = torch.flip(Im, dims=[-2])      # 上下翻转
+    Im_diag = torch.flip(Im, dims=[-1, -2])# 对角线翻转（先左右再上下）
+
+    # dim=-1 宽度方向拼接
     Im_up = torch.cat((Im_diag, Im_ud, Im_diag), dim=-1)
     Im_mid = torch.cat((Im_lr, Im, Im_lr), dim=-1)
     Im_down = torch.cat((Im_diag, Im_ud, Im_diag), dim=-1)
+
+    # 高度方向拼接
     Im_Ext = torch.cat((Im_up, Im_mid, Im_down), dim=-2)
+
     Im_out = Im_Ext[:, :, h - bdr[0]: 2 * h + bdr[1], w - bdr[2]: 2 * w + bdr[3]]
+    # 图像是左上到右下的坐标系
 
     return Im_out
 
@@ -75,9 +98,25 @@ def LFdivide(lf, patch_size, stride):
 
 
 def LFintegrate(subLFs, patch_size, stride):
+    """
+    将分割后的光场图像块重新拼接成完整图像。
+
+    参数：
+    subLFs: 分割后的子块张量，形状为 (N1, N2, U, V, C, patch_size, patch_size)。
+    patch_size: 子块的大小。
+    stride: 分割时的步长。
+
+    返回：
+    拼接后的完整光场图像，形状为 (U, V, C, H, W)。
+    """
     n1, n2, u, v, c, h, w = subLFs.shape
     bdr = (patch_size - stride) // 2
+    # 提取有效区域（去除扩展的边界）
+    # 取每个块的中间stride×stride区域（去掉边缘bdr）
     outLF = subLFs[:, :, :, :, :, bdr:bdr+stride, bdr:bdr+stride]
+    # 重新排列维度：
+    # 将 (n1, n2, U, V, C, stride, stride) 转换为
+    # (U, V, C, n1*stride, n2*stride)
     outLF = rearrange(outLF, 'n1 n2 u v c h w -> u v c (n1 h) (n2 w)')
 
     return outLF

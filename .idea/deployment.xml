@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@root@connect.westc.gpuhub.com:22683 password" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="root@root@connect.westb.seetacloud.com:15551 password" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="root@connect.westc.gpuhub.com">
         <serverdata>
@@ -16,6 +16,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="root@root@connect.westb.seetacloud.com:15551 password">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/root/LF-SASR" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="root@root@connect.westc.gpuhub.com:22683 password">
         <serverdata>
           <mappings>
@@ -27,6 +34,13 @@
         <serverdata>
           <mappings>
             <mapping deploy="/root/LF-SASR" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="ssh -p 15551 root@connect.westb.seetacloud.com">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
