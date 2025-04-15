@@ -12,8 +12,11 @@ class TrainSetLoader():
         super(TrainSetLoader, self).__init__()
         self.args = args
         self.item_num = args.batch_size * 100
+    #     why 100？
 
+    # getitem的特殊用法
     def __getitem__(self, index):
+
         file_list = os.listdir(self.args.trainset_dir)
         file_idx = np.random.randint(len(file_list))
         file_name = [self.args.trainset_dir + file_list[file_idx]]
@@ -33,6 +36,7 @@ def MultiTestSetDataLoader(args):
     test_Loaders = []
     length_of_tests = 0
     for data_name in data_list:
+        # 这里更应该说是datasetlist dataset_name
         test_Dataset = TestSetDataLoader(args, data_name)
         length_of_tests += len(test_Dataset)
         test_Loaders.append(DataLoader(dataset=test_Dataset, num_workers=0, batch_size=1, shuffle=False))
@@ -45,7 +49,7 @@ class TestSetDataLoader(Dataset):
         super(TestSetDataLoader, self).__init__()
         self.args = args
         self.file_list = []
-        self.testset_dir = args.testset_dir + data_name
+        self.testset_dir = args.testset_dir + data_name #dataset_name
         tmp_list = os.listdir(self.testset_dir)
         self.gen_LR = MultiDegrade(
             scale=self.args.upfactor,

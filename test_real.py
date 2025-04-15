@@ -1,3 +1,12 @@
+'''
+DMnet中的test val train分开不太清晰
+这里是更改原来的validation.py文件，这一部分其实就是把train的train修改完了
+数据集分割其实不太清晰，但查阅相关资料，加之源代码也并没有泄露测试集
+因此不进行大范围更改，仅对名称就行修改
+
+'''
+
+
 import argparse
 import torch.backends.cudnn as cudnn
 from utils.utility import *
@@ -72,7 +81,8 @@ def valid(test_loader, net):
                     out_lfs.append(lf_out)
                 if (n1 * n2) % mini_batch:
                     torch.cuda.empty_cache()
-                    input_lfs = sub_lfs[(idx_inference+1) * mini_batch :, :, :, :, :, :]
+                    start_idx = num_inference * mini_batch
+                    input_lfs = sub_lfs[start_idx :, :, :, :, :, :]
                     lf_out = net((input_lfs.to(args.device), gt_blur.repeat(input_lfs.shape[0], 1, 1, 1), gt_noise.repeat(input_lfs.shape[0], 1, 1, 1)))
                     out_lfs.append(lf_out)
 

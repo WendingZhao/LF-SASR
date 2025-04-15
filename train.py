@@ -7,6 +7,8 @@ from utils.utility import *
 from utils.dataloader import *
 from model.DAnet_old import Net
 from einops import rearrange
+# now the trian sample has 20 scenes
+# test has 4 (HCI_NEW)
 
 # parse the argument
 parser = argparse.ArgumentParser()
