@@ -1,6 +1,6 @@
 import argparse
 from utils.utility import *
-from model.DAnet_old import Net
+from model.SAnet_1 import Net
 import numpy as np
 import imageio
 import torch
@@ -13,11 +13,11 @@ def parse_args():
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument("--angRes", type=int, default=5, help="angular resolution")
     parser.add_argument("--upfactor", type=int, default=4, help="upscale factor")
-    parser.add_argument('--crop', type=bool, default=False, help="LFs are cropped into patches to save GPU memory")
+    parser.add_argument('--crop', type=bool, default=True, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument("--patchsize", type=int, default=32, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument("--minibatch", type=int, default=20, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument('--input_dir', type=str, default='./input/')
-    parser.add_argument('--save_path', type=str, default='../output_papaer_0_0/')
+    parser.add_argument('--save_path', type=str, default='../output_transformer/SASR_init')
 
     return parser.parse_args()
 
@@ -26,7 +26,7 @@ def demo_test(cfg, sigma_range, noise_range):
 
     net = Net(cfg.upfactor, cfg.angRes)
     net.to(cfg.device)
-    model = torch.load('./log/LF-DAnet_4xSR_paper.tar', map_location={'cuda:1': cfg.device})
+    model = torch.load('./log/LF-SASR_init_4xSR_epoch_100.tar', map_location={'cuda:1': cfg.device})
     net.load_state_dict(model['state_dict'])
 
     scene_list = os.listdir(cfg.input_dir)

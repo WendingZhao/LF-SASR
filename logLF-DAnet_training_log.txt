@@ -1,9 +1,0 @@
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--0.000000,	 sig--0.000000,	 PSNR---22.401823,	 SSIM---0.546038 
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--0.000000,	 sig--1.500000,	 PSNR---22.261402,	 SSIM---0.539976 
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--0.000000,	 sig--3.000000,	 PSNR---21.912080,	 SSIM---0.525794 
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--15.000000,	 sig--0.000000,	 PSNR---22.205445,	 SSIM---0.535037 
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--15.000000,	 sig--1.500000,	 PSNR---22.070866,	 SSIM---0.528976 
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--15.000000,	 sig--3.000000,	 PSNR---21.734032,	 SSIM---0.514801 
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--50.000000,	 sig--0.000000,	 PSNR---21.228550,	 SSIM---0.448194 
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--50.000000,	 sig--1.500000,	 PSNR---21.115135,	 SSIM---0.442246 
-Epoch--1.000000,	 Dataset--        HCI_new,	 noise--50.000000,	 sig--3.000000,	 PSNR---20.833107,	 SSIM---0.428658 

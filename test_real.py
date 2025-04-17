@@ -11,7 +11,7 @@ import argparse
 import torch.backends.cudnn as cudnn
 from utils.utility import *
 from utils.dataloader import *
-from model.DAnet_old import Net
+from model.SAnet_0 import Net
 from numpy import random
 
 parser = argparse.ArgumentParser()

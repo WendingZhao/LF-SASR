@@ -1,5 +1,8 @@
-output/
-log/
+output/*
+log/*
+
 visualization
 log_my
 !log/LF-DAnet_4xSR_paper.tar
+!log/LF-SASR_init_4xSR_epoch_100.tar
+log_transfomer

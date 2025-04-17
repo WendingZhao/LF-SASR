@@ -5,7 +5,7 @@ from tqdm import tqdm
 import random
 from utils.utility import *
 from utils.dataloader import *
-from model.DAnet_old import Net
+from model.SAnet_1 import Net
 from einops import rearrange
 # now the trian sample has 20 scenes
 # test has 4 (HCI_NEW)
@@ -16,7 +16,7 @@ parser.add_argument('--device', type=str, default='cuda:0')
 parser.add_argument('--parallel', type=bool, default=False)
 
 parser.add_argument('--num_workers', type=int, default=4)
-parser.add_argument('--model_name', type=str, default='LF-DAnet')
+parser.add_argument('--model_name', type=str, default='LF-SASR_init')
 
 parser.add_argument("--angRes", type=int, default=5, help="angular resolution")
 parser.add_argument("--upfactor", type=int, default=4, help="upscale factor")
@@ -24,7 +24,7 @@ parser.add_argument("--upfactor", type=int, default=4, help="upscale factor")
 parser.add_argument('--load_pretrain', type=bool, default=False)
 parser.add_argument('--model_path', type=str, default='./log/mypth.tar')
 
-parser.add_argument('--batch_size', type=int, default=16)
+parser.add_argument('--batch_size', type=int, default=4)
 parser.add_argument('--patchsize_train', type=int, default=32, help='patchsize of LR images for training')
 
 parser.add_argument('--lr', type=float, default=2e-4, help='initial learning rate')
@@ -72,15 +72,17 @@ def train(args):
         net = torch.nn.DataParallel(net, device_ids=[0])
 
     # 创建日志目录和文件
-    log_dir = './log/'
+    log_dir = './log_transfomer/'
     os.makedirs(log_dir, exist_ok=True)
     loss_log_file = os.path.join(log_dir, f"{args.model_name}_loss_log.txt")
-
+    loss_evaluate_file= os.path.join(log_dir, f"{args.model_name}_loss_evaluate.txt")
     # 初始化损失日志文件（添加标题）
     if not os.path.exists(loss_log_file):
         with open(loss_log_file, 'w') as f:
             f.write("Epoch, Loss\n")
-
+    if not os.path.exists(loss_evaluate_file):
+        with open(loss_evaluate_file, 'w') as f:
+            f.write("init!\n")
 
     # 配置损失函数和优化器
     criterion_Loss = torch.nn.L1Loss().to(args.device)
@@ -169,12 +171,12 @@ def train(args):
                         psnr_epoch_test, ssim_epoch_test = valid(test_loader, net)
                         print('Dataset--%15s,\t noise--%f, \t sig---%f, \t PSNR--%f, \t SSIM---%f' % (
                         test_name, args.noise, sig, psnr_epoch_test, ssim_epoch_test))
-                        txtfile = open('./log' + args.model_name + '_training_log.txt', 'a')
+                        txtfile = open(loss_evaluate_file, 'a')
                         txtfile.write('Epoch--%f,\t Dataset--%15s,\t noise--%f,\t sig--%f,\t PSNR---%f,\t SSIM---%f \n' % (
                             idx_epoch + 1, test_name, args.noise, sig, psnr_epoch_test, ssim_epoch_test))
                         txtfile.close()
 
-            txtfile = open('./log/' + args.model_name + '_evaluate_log.txt', 'a')
+            txtfile = open(loss_evaluate_file, 'a')
             txtfile.write('\n')
             txtfile.close()
         # 学习率调度器更新
