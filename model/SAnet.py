@@ -260,7 +260,7 @@ if __name__ == "__main__":
     factor = 4
     net = Net(factor, angRes)
 
-    # from thop import profile
+    from thop import profile
     input_lf = torch.randn(4, angRes, angRes, 3, 32, 32)
 
 

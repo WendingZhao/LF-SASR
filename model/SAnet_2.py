@@ -13,7 +13,7 @@ class Net(nn.Module):
         n_block = 4
         self.factor = factor
         # gencode's input is the number of channel out
-        self.gen_code = Gen_Code(15)
+        self.gen_code = Gen_Code_Transformer(15)
         # 初始卷积层：将输入的RGB图像（3通道）映射到64个特征通道
         self.initial_conv = nn.Conv2d(3, channels, kernel_size=3, stride=1, padding=1, bias=False)
         # 深层级联卷积组：使用 CascadeGroups 模块，
@@ -227,51 +227,73 @@ class PixelShuffle1D(nn.Module):
         return x.view(b, c, h * self.factor, w)
 
 # this part in the article is DM-block not DAblock
+
+
+# 修改后的 DABlock（新增 Cross-Attention 模块）
 class DABlock(nn.Module):
     def __init__(self, channels):
         super(DABlock, self).__init__()
+        # 新增交叉注意力模块（Cross-Attention）
+        self.cross_attn = nn.MultiheadAttention(
+            embed_dim=channels,  # 与输入特征的通道数一致
+            num_heads=4,
+            dropout=0.1,
+            batch_first=True  # 输入维度格式为 (batch, seq_len, embed_dim)
+        )
 
-        #
+        # 原有模块（保留不变）
         self.generate_kernel = nn.Sequential(
             nn.Conv2d(16, 64, 1, 1, 0, bias=False),
             nn.LeakyReLU(0.1, True),
-            nn.Conv2d(64, 64 * 9, 1, 1, 0, bias=False))
-
+            nn.Conv2d(64, 64 * 9, 1, 1, 0, bias=False)
+        )
         self.conv_1x1 = nn.Conv2d(channels, channels, kernel_size=1, stride=1, padding=0, bias=False)
-
         self.ca_layer = CA_Layer(80, 64)
-
         self.relu = nn.LeakyReLU(0.1, inplace=True)
+
+        # 新增适配层（可选，用于特征对齐）
+        self.code_proj = nn.Linear(16, channels)  # 假设 code_array 的通道数为16（需根据 Gen_Code 的输出调整）
 
     def forward(self, x, code_array):
         b, u, v, c, h, w = x.shape
-        # 将6D光场输入展平为标准的2D图像形式，以便进行group卷积
-        input_spa = rearrange(x, 'b u v c h w -> 1 (b u v c) h w', b=b, u=u, v=v)
 
-        # 使用退化代码生成每个位置的卷积核： (b, 64*9, u, v) -> 卷积核 shape: (b*u*v, 64*9)
-        kernel = self.generate_kernel(code_array)  # b, 64 * 9, u, v
-        kernel = rearrange(kernel, 'b c u v -> (b u v) c')
+        # --- 新增：交叉注意力模块 ---
+        # 1. 处理输入特征 x
+        # 将 x 展平为 (B*U*V, H*W, C)
+        x_flat = rearrange(x, 'b u v c h w -> (b u v) (h w) c')  # (B*U*V, H*W, C)
 
-        # 使用自定义卷积核进行group-wise卷积，每个位置使用不同核
-        fea_spa = self.relu(F.conv2d(
-            input_spa,
-            kernel.contiguous().view(-1, 1, 3, 3),  # 每组一个3x3卷积核
-            groups=b * u * v * c,
-            padding=1
-        ))
+        # 2. 处理退化代码 code_array
+        # 假设 code_array 的形状为 (B, C_code, U, V)，需调整为序列格式
+        code_flat = rearrange(code_array, 'b c u v -> (b u v) c')  # (B*U*V, C_code)
+        code_embed = self.code_proj(code_flat)  # 投影到与 x 相同的通道数 (B*U*V, C)
+        code_embed = code_embed.unsqueeze(1).repeat(1, h*w, 1)  # (B*U*V, H*W, C)
 
-        # 还原为标准格式 (b u v) c h w
-        fea_spa = rearrange(fea_spa, '1 (b u v c) h w -> (b u v) c h w', b=b, u=u, v=v, c=c)
-        # 特征通道映射
-        fea_spa_da = self.conv_1x1(fea_spa)
-        # reshape to standard format
-        fea_spa_da = rearrange(fea_spa_da, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
+        # 3. 交叉注意力：以 code_embed 为键值，x_flat 为查询
+        attn_out, _ = self.cross_attn(
+            query=x_flat,  # (B*U*V, H*W, C)
+            key=code_embed,  # (B*U*V, H*W, C)
+            value=code_embed  # (B*U*V, H*W, C)
+        )
 
-        # 加上通道注意力输出和残差连接
-        out = fea_spa_da + self.ca_layer(fea_spa_da, code_array) + x
+        # 4. 将注意力输出与原始 x 融合（例如逐元素相加）
+        x_attn = rearrange(attn_out, '(b u v) (h w) c -> b u v c h w',
+                           b=b, u=u, v=v, h=h, w=w)
+        x_fused = x + x_attn  # 残差连接
+
+
+        # # 1. 空间卷积处理（使用生成的动态卷积核）
+        # input_spa = rearrange(x_fused, 'b u v c h w -> 1 (b u v c) h w')
+        # kernel = self.generate_kernel(code_array)  # (b, 64*9, u, v)
+        # kernel = rearrange(kernel, 'b c u v -> (b u v) c')  # (B*U*V, 64*9)
+        # kernel = kernel.view(-1, 1, 3, 3)  # 转换为卷积核格式 (B*U*V*64, 1, 3, 3)
+
+        # 2. 通道注意力模块（CA_Layer）
+        ca_out = self.ca_layer(x_fused, code_array)
+
+        # 3. 最终输出（残差连接）
+        out =  ca_out + x_fused  # 注意：x_fused 已经包含注意力结果
 
         return out
-
 
 class CA_Layer(nn.Module):
     def __init__(self, channel_in, channel_out):
@@ -364,12 +386,45 @@ class Gen_Code(nn.Module):
 
         return code
 
+# Tranffomer实现的Gen_code
+class Gen_Code_Transformer(nn.Module):
+    def __init__(self, channel_out, kernel_size=21, embed_dim=64, num_heads=4, num_layers=2):
+        super(Gen_Code_Transformer, self).__init__()
+
+        ax = torch.arange(kernel_size).float() - kernel_size // 2
+        self.xx_yy = -(ax.repeat(kernel_size).view(1, kernel_size, kernel_size) ** 2 +
+                       ax.repeat_interleave(kernel_size).view(1, kernel_size, kernel_size) ** 2)
+        # Transformer 编码器
+        self.patch_embed = nn.Linear(kernel_size**2, embed_dim)  # 将高斯核展平为向量并嵌入
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=embed_dim, nhead=num_heads, dim_feedforward=256, activation='relu',batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        # 输出头
+        self.mlp_head = nn.Sequential(
+            nn.Linear(embed_dim, 64),
+            nn.LeakyReLU(0.1, True),
+            nn.Linear(64, channel_out)
+        )
+
+    def forward(self, sigma):
+        b, c, u, v = sigma.shape
+
+        kernel = torch.exp(self.xx_yy.to(sigma.device) / (2. * sigma.view(-1, 1, 1) ** 2))
+        kernel = kernel / kernel.sum([1, 2], keepdim=True)
+        # 展平为序列并输入 Transformer
+        kernel_flat = kernel.view(b * u * v, -1)  # (B*U*V, kernel_size^2)
+        # Transformer 处理
+        embed = self.patch_embed(kernel_flat).unsqueeze(1)  # (B*U*V, 1, embed_dim)
+        global_code = self.transformer(embed).squeeze(1)  # (B*U*V, embed_dim)
+        # 输出退化代码
+        code = self.mlp_head(global_code).view(b, u, v, -1)  # (B, U, V, channel_out)
+        return code.permute(0, 3, 1, 2)  # 调整为 (B, C, U, V)
 
 if __name__ == "__main__":
     angRes = 5
     factor = 4
-
-    batch_size=16
+    batch_size=4
     net = Net(factor, angRes)
     # print(net)
     from thop import profile
@@ -385,8 +440,11 @@ if __name__ == "__main__":
     total = sum([param.nelement() for param in net.parameters()])
     flops, params = profile(net, inputs=((input_lf, blur, noise), ))
 
-    print('   Number of parameters: %.2fM' % (params / 1e6)) #3.90M origin
+    print('   Number of parameters: %.2fM' % (params / 1e6))
     print('   Number of FLOPs: %.2fG' % (flops / 1e9)) # 263.10G origin
 
+'''
 
+
+'''
 

@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument("--patchsize", type=int, default=32, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument("--minibatch", type=int, default=20, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument('--input_dir', type=str, default='./input/')
-    parser.add_argument('--save_path', type=str, default='../output_transformer/SASR_init')
+    parser.add_argument('--save_path', type=str, default='../output_transformer/SASR_2/')
 
     return parser.parse_args()
 
@@ -26,7 +26,7 @@ def demo_test(cfg, sigma_range, noise_range):
 
     net = Net(cfg.upfactor, cfg.angRes)
     net.to(cfg.device)
-    model = torch.load('./log/LF-SASR_init_4xSR_epoch_100.tar', map_location={'cuda:1': cfg.device})
+    model = torch.load('./log/SAnet_2_4xSR_epoch_68.tar', map_location={'cuda:1': cfg.device})
     net.load_state_dict(model['state_dict'])
 
     scene_list = os.listdir(cfg.input_dir)

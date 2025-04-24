@@ -8,18 +8,18 @@ from einops import rearrange
 def save_ckpt(args, net, idx_epoch):
     if args.parallel:
         torch.save({'epoch': idx_epoch, 'state_dict': net.module.state_dict()},
-                   './log_transfomer/' + args.model_name + '_' + str(args.upfactor) + 'xSR.tar')
+                   './log_transfomer_2/' + args.model_name + '_' + str(args.upfactor) + 'xSR.tar')
     else:
         torch.save({'epoch': idx_epoch, 'state_dict': net.state_dict()},
-                   './log_transfomer/' + args.model_name + '_' + str(args.upfactor) + 'xSR.tar')
+                   './log_transfomer_2/' + args.model_name + '_' + str(args.upfactor) + 'xSR.tar')
 
     if idx_epoch % 50 == 0:
         if args.parallel:
             torch.save({'epoch': idx_epoch, 'state_dict': net.module.state_dict()},
-                       './log_transfomer/' + args.model_name + '_' + str(args.upfactor) + 'xSR' + '_epoch_' + str(idx_epoch) + '.tar')
+                       './log_transfomer_2/' + args.model_name + '_' + str(args.upfactor) + 'xSR' + '_epoch_' + str(idx_epoch) + '.tar')
         else:
             torch.save({'epoch': idx_epoch, 'state_dict': net.state_dict()},
-                       './log_transfomer/' + args.model_name + '_' + str(args.upfactor) + 'xSR' + '_epoch_' + str(idx_epoch) + '.tar')
+                       './log_transfomer_2/' + args.model_name + '_' + str(args.upfactor) + 'xSR' + '_epoch_' + str(idx_epoch) + '.tar')
 
 
 def cal_metrics(label, out):

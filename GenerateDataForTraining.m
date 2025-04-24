@@ -15,13 +15,14 @@ sourceDataPath = '../Datasets/';
 sourceDatasets = dir(sourceDataPath);
 sourceDatasets(1:2) = [];
 datasetsNum = length(sourceDatasets);
-idx = 0;
+idx = 2880;
 SavePath = '../Data/Train_MDSR/';
 if exist(SavePath, 'dir')==0
     mkdir(SavePath);
 end
 
-Train_Dataset_List = {'HCI_new', 'HCI_old', 'Stanford_Gantry'};
+Train_Dataset_List = {'HCI_old', 'Stanford_Gantry'};
+% Train_Dataset_List = {'HCI_new', 'HCI_old', 'Stanford_Gantry'};
 
 for DatasetIndex = 1 : length(Train_Dataset_List)
     Train_Dataset = Train_Dataset_List{DatasetIndex};
@@ -34,7 +35,7 @@ for DatasetIndex = 1 : length(Train_Dataset_List)
     sceneNum = length(folders);
     
     for iScene = 1 : sceneNum
-        idx_s = 0;
+        idx_s = 0; % 这里大概率是错的，在此不进行删除
         sceneName = folders(iScene).name;
         sceneName(end-3:end) = [];
         fprintf('Generating training data of Scene_%s in Dataset %s......\t', sceneName, Train_Dataset);
@@ -47,9 +48,7 @@ for DatasetIndex = 1 : length(Train_Dataset_List)
         a_t = (9 - angRes) / 2 + angRes;
         LF = LF(a_0:a_t, a_0:a_t, :, :, 1:3);
         [U, V, H, W, ~] = size(LF);
-        newh=1 : stride : H -  patchsize + 1;
-        neww=1 : stride : W -  patchsize + 1;
-
+        
         for h =  1 : stride : H -  patchsize + 1
             for w =  1 : stride : W -  patchsize + 1
 

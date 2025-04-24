@@ -227,6 +227,8 @@ class PixelShuffle1D(nn.Module):
         return x.view(b, c, h * self.factor, w)
 
 # this part in the article is DM-block not DAblock
+
+
 # 修改后的 DABlock（新增 Cross-Attention 模块）
 class DABlock(nn.Module):
     def __init__(self, channels):
@@ -273,12 +275,15 @@ class DABlock(nn.Module):
             value=code_embed  # (B*U*V, H*W, C)
         )
 
-        # 4. 将注意力输出与原始 x 融合（例如逐元素相加）
+        # value 部分 需要与原始 x 进行融合
+
+
+        # 4. 将注意力输出与原始 x 融合
         x_attn = rearrange(attn_out, '(b u v) (h w) c -> b u v c h w',
                            b=b, u=u, v=v, h=h, w=w)
         x_fused = x + x_attn  # 残差连接
 
-        # --- 原有流程继续 ---
+
         # 1. 空间卷积处理（使用生成的动态卷积核）
         input_spa = rearrange(x_fused, 'b u v c h w -> 1 (b u v c) h w')
         kernel = self.generate_kernel(code_array)  # (b, 64*9, u, v)
@@ -291,6 +296,7 @@ class DABlock(nn.Module):
             groups=b * u * v * c,
             padding=1
         ))
+
         fea_spa = rearrange(fea_spa, '1 (b u v c) h w -> (b u v) c h w',
                             b=b, u=u, v=v, c=c)
         fea_spa_da = self.conv_1x1(fea_spa)
@@ -301,7 +307,7 @@ class DABlock(nn.Module):
         ca_out = self.ca_layer(fea_spa_da, code_array)
 
         # 3. 最终输出（残差连接）
-        out = fea_spa_da + ca_out + x_fused  # 注意：x_fused 已经包含注意力结果
+        out = fea_spa_da + ca_out + x_fused
 
         return out
 
@@ -396,7 +402,7 @@ class Gen_Code(nn.Module):
 
         return code
 
-# 新的 Gen_Code (替换原有 Gen_Code 类)
+# Tranffomer实现的Gen_code
 class Gen_Code_Transformer(nn.Module):
     def __init__(self, channel_out, kernel_size=21, embed_dim=64, num_heads=4, num_layers=2):
         super(Gen_Code_Transformer, self).__init__()
@@ -419,7 +425,7 @@ class Gen_Code_Transformer(nn.Module):
 
     def forward(self, sigma):
         b, c, u, v = sigma.shape
-        # 计算高斯核（与原代码逻辑相同）
+
         kernel = torch.exp(self.xx_yy.to(sigma.device) / (2. * sigma.view(-1, 1, 1) ** 2))
         kernel = kernel / kernel.sum([1, 2], keepdim=True)
         # 展平为序列并输入 Transformer
@@ -434,6 +440,7 @@ class Gen_Code_Transformer(nn.Module):
 if __name__ == "__main__":
     angRes = 5
     factor = 4
+    batch_size=16
     net = Net(factor, angRes)
     # print(net)
     from thop import profile
@@ -441,9 +448,9 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
 
-    input_lf = torch.randn(4, angRes, angRes, 3, 32, 31).to(device)
-    blur = torch.randn(4, 1, angRes, angRes).to(device)
-    noise = torch.randn(4, 1, angRes, angRes).to(device)
+    input_lf = torch.randn(batch_size, angRes, angRes, 3, 32, 32).to(device)
+    blur = torch.randn(batch_size, 1, angRes, angRes).to(device)
+    noise = torch.randn(batch_size, 1, angRes, angRes).to(device)
 
     # THE PARAMATER OF THE MODEL
     total = sum([param.nelement() for param in net.parameters()])
@@ -453,12 +460,29 @@ if __name__ == "__main__":
     print('   Number of FLOPs: %.2fG' % (flops / 1e9)) # 263.10G origin
 
 '''
-the origin model;s parameters' numver is 3.90M and the flops 263.10 g
+Batchsize=4 situation
+the origin model;s parameters' numver is 3.80M and the flops 263.10 g
 
 but the transformer realization is 
    Number of parameters: 3.86M
-   Number of FLOPs: 254.89G
+   Number of FLOPs: 263.11G
 
+batchsie = 8 
+origin:
+   Number of parameters: 3.80M
+   Number of FLOPs: 526.20G
+tranfomer
+   Number of parameters: 3.86M
+   Number of FLOPs: 526.22G
+
+and when we test batchsize which equals to 16
+
+the transfomer version display that cuda is out of memory
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 6.25 GiB. GPU 0 has a total capacity of 6.00 GiB of which 0 bytes is free. 
+
+while the origin paramter is 3.80M and FLOPS is 1052.41G 
+ Number of parameters: 3.80M
+   Number of FLOPs: 1052.41G
 
 '''
 

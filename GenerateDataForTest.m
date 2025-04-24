@@ -21,10 +21,11 @@ if exist(SavePath, 'dir')==0
     mkdir(SavePath);
 end
 
-Test_Dataset_List = {'HCI_new'};
+Test_Dataset_List = {'HCI_old', 'Stanford_Gantry'};
 % Test_Dataset_List = {'HCI_new', 'HCI_old', 'Stanford_Gantry'};
 for DatasetIndex = 1 : length(Test_Dataset_List)
     Tset_Dataset = Test_Dataset_List{DatasetIndex};
+    mkdir([SavePath,'/',Tset_Dataset])
     sourceDataFolder = [sourceDataPath, Tset_Dataset, '/test/'];
     folders = dir(sourceDataFolder); % list the scenes
     if isempty(folders)
@@ -61,7 +62,7 @@ for DatasetIndex = 1 : length(Test_Dataset_List)
                 
                 idx = idx + 1;
                 
-                SavePath_H5 = [SavePath, num2str(idx,'%06d'),'.h5'];
+                SavePath_H5 = [SavePath,Tset_Dataset,'/', num2str(idx,'%06d'),'.h5'];
                 h5create(SavePath_H5, '/lf', size(subLF), 'Datatype', 'single');
                 h5write(SavePath_H5, '/lf', single(subLF), [1,1,1,1,1], size(subLF));
             end

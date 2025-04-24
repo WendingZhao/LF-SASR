@@ -5,7 +5,7 @@ from tqdm import tqdm
 import random
 from utils.utility import *
 from utils.dataloader import *
-from model.SAnet_1 import Net
+from model.SAnet_2 import Net
 from einops import rearrange
 # now the trian sample has 20 scenes
 # test has 4 (HCI_NEW)
@@ -16,7 +16,7 @@ parser.add_argument('--device', type=str, default='cuda:0')
 parser.add_argument('--parallel', type=bool, default=False)
 
 parser.add_argument('--num_workers', type=int, default=4)
-parser.add_argument('--model_name', type=str, default='LF-SASR_init')
+parser.add_argument('--model_name', type=str, default='SAnet_2')
 
 parser.add_argument("--angRes", type=int, default=5, help="angular resolution")
 parser.add_argument("--upfactor", type=int, default=4, help="upscale factor")
@@ -28,9 +28,9 @@ parser.add_argument('--batch_size', type=int, default=4)
 parser.add_argument('--patchsize_train', type=int, default=32, help='patchsize of LR images for training')
 
 parser.add_argument('--lr', type=float, default=2e-4, help='initial learning rate')
-parser.add_argument('--n_epochs', type=int, default=1000, help='number of epochs to train')
+parser.add_argument('--n_epochs', type=int, default=150, help='number of epochs to train')
 
-parser.add_argument('--n_steps', type=int, default=300, help='number of epochs to update learning rate')
+parser.add_argument('--n_steps', type=int, default=30, help='number of epochs to update learning rate')
 parser.add_argument('--gamma', type=float, default=0.5, help='learning rate decaying factor')
 
 parser.add_argument('--crop', type=bool, default=True)
@@ -72,7 +72,7 @@ def train(args):
         net = torch.nn.DataParallel(net, device_ids=[0])
 
     # 创建日志目录和文件
-    log_dir = './log_transfomer/'
+    log_dir = './log_transfomer_2/'
     os.makedirs(log_dir, exist_ok=True)
     loss_log_file = os.path.join(log_dir, f"{args.model_name}_loss_log.txt")
     loss_evaluate_file= os.path.join(log_dir, f"{args.model_name}_loss_evaluate.txt")
