@@ -2,9 +2,9 @@
 
 LF-SASR(Light Field Scenario-Aware Super Resolution) aims to bridge the gap between idealized synthetic datasets and challenging real-world environments, providing practical and efficient solutions for light field super-resolution tasks.
 
-This project is forked from [LF-DMnet](https://github.com/yingqianwang/LF-DMnet)
+This project is forked from [LF-DMnet](https://github.com/yingqianwang/LF-DMnet) and is partly based on [EPIT](https://github.com/ZhengyuLiang24/EPIT/).
 
-**THIS PROJECT IS UNDER CONSTRUCTION **
+**THIS PROJECT IS UNDER CONSTRUCTION**
 
 ## Abstract:
 
@@ -14,7 +14,7 @@ LF-SASR is a research project aimed at advancing light field image super-resolut
 
 #### 1. Requirement:
 * PyTorch 2.5.0, torchvision 0.20.0. The code is tested with python=3.12.7, cuda=12.7
-* Matlab for training/validation data generation.
+* Matlab or Python for training/validation/test data generation.
 
 #### 2. Datasets:
 * We used the HCInew, HCIold and STFgantry datasets for training and validation. Please first download the aforementioned datasets via [Baidu Drive](https://pan.baidu.com/s/1mYQR6OBXoEKrOk0TjV85Yw) (key:7nzy) or [OneDrive](https://stuxidianeducn-my.sharepoint.com/:f:/g/personal/zyliang_stu_xidian_edu_cn/EpkUehGwOlFIuSSdadq9S4MBEeFkNGPD_DlzkBBmZaV_mA?e=FiUeiv), and place these datasets to the folder `../Datasets/`.
