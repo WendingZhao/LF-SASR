@@ -171,20 +171,30 @@ def train(train_loader, device, net, criterion, optimizer):
     )
     add_noise = LF_Noise(noise=args.noise, random=True)
 
+    # LF 4 3 5 5 143 143
+    # lf_defrad # LF 4 3 5 5 143 143
+    # kernel 4 21 21
+    # sigmas (4,)??
     for idx_iter, (LF) in tqdm(enumerate(train_loader), total=len(train_loader), ncols=70):
         ''' degradation '''
         if args.task == 'SSR':
             # Isotropic or Anisotropic Gaussian Blurs
             [LF_degraded, kernels, sigmas] = blur_func(LF)
-            LF, LF_degraded = random_crop_SAI(LF, LF_degraded, SAI_patch=args.patch_for_train*args.scale_factor)
+            LF, LF_degraded = random_crop_SAI(LF, LF_degraded, SAI_patch=args.patch_for_train*args.scale_factor) # the size changed
+            # lf 128 128 degrad 32 32
 
             # down-sampling
             LF_degraded = LF_Bicubic(LF_degraded, scale=1/args.scale_factor)
             [LF_degraded, noise_levels] = add_noise(LF_degraded)
+            # noise level (4,)
 
             LF_input = LF_degraded
             LF_target = LF
-            info = [kernels, sigmas, noise_levels]
+            # info is a list of tensors [(4 21 21) (4,) (4,) ]
+            # the default value is all 0 except the sigmas has a value of 1e-6
+            gt_blur = sigmas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, 1, args.angRes, args.angRes) / 4
+            gt_noise = noise_levels.repeat(1, 1, args.angRes, args.angRes)
+            info = [kernels, gt_blur, gt_noise]
         elif args.task == 'ASR':
             angFactor = (args.angRes_out - 1) // (args.angRes_in - 1)
             LF_sampled = LF[:, :, ::angFactor, ::angFactor, :, :]
@@ -249,7 +259,7 @@ def test(args, test_name, test_loader, net, excel_file, save_dir=None):
         ''' Crop LFs into Patches '''
         LF_divide_integrate_func = LF_divide_integrate(args.scale_factor, args.patch_size_for_test, args.stride_for_test)
         sub_LF_input = LF_divide_integrate_func.LFdivide(LF_input)
-
+        # 64 3 5 5 32 32
 
         ''' SR the Patches '''
         sub_LF_out = []
@@ -326,6 +336,8 @@ def main_test(args):
     ''' Load Pre-Trained PTH '''
     ckpt_path = args.path_pre_pth
     checkpoint = torch.load(ckpt_path, map_location='cpu')
+
+    # 单/多gpu训练出现的module.?
     try:
         new_state_dict = OrderedDict()
         for k, v in checkpoint['state_dict'].items():

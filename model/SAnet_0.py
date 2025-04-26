@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 import torch.nn.functional as F
-
+from model.Distgblock import DistgBlock
 
 class Net(nn.Module):
     def __init__(self, factor, angRes):
@@ -117,115 +117,6 @@ class BasicGroup(nn.Module):
 
         return out + x # res module
 
-# 接下来是套娃环节
-class DistgBlock(nn.Module):
-    def __init__(self, angRes, channels):
-        super(DistgBlock, self).__init__()
-
-        # 空间特征提取模块（保留每个视角下的空间结构）
-        self.spa_conv = SpaConv(channels, channels)
-        # 角度特征提取模块（考虑多视角间角度关系）
-        self.ang_conv = AngConv(angRes, channels, channels // 4)
-        # EPI 水平线特征提取（横向视角间几何一致性）
-        self.epi_conv = EpiConv(angRes, channels, channels // 2)
-        # 特征融合模块：融合空间、角度、EPI 信息
-        self.fuse = nn.Sequential(
-            nn.Conv2d(2 * channels + channels // 4, channels, 1, 1, 0, bias=False),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.Conv2d(channels, channels, 3, 1, 1, bias=False),# 特征聚合
-        )
-
-    def forward(self, x):
-        b, u, v, c, h, w = x.shape
-        fea_spa = self.spa_conv(x)
-        fea_ang = self.ang_conv(x)
-        # EPI 水平特征（Epipolar Plane Image）：提取横向的几何一致性
-        fea_epih = self.epi_conv(x)
-        # EPI 垂直特征：将 x 交换 u 和 v，再调用 EpiConv 提取纵向结构
-        xT = rearrange(x, 'b u v c h w -> b v u c w h')
-        fea_epiv = rearrange(self.epi_conv(xT), 'b v u c w h -> b u v c h w')
-
-        # 将空间、角度、EPI-H、EPI-V 特征按通道维拼接
-        fea = torch.cat((fea_spa, fea_ang, fea_epih, fea_epiv), dim=3)
-        # 打平角度维度，统一使用 2D 卷积处理
-        fea = rearrange(fea, 'b u v c h w -> (b u v) c h w')
-        # 特征融合模块：融合后再压缩回原通道数
-        out = self.fuse(fea)
-        out = rearrange(out, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
-
-        return out + x
-
-
-
-class SpaConv(nn.Module):
-    def __init__(self, channel_in, channel_out):
-        super(SpaConv, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(channel_in, channel_out, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.LeakyReLU(0.1, True),
-            nn.Conv2d(channel_in, channel_out, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.LeakyReLU(0.1, True))
-
-    def forward(self, x):
-        b, u, v, c, h, w = x.shape
-        input = rearrange(x, 'b u v c h w -> (b u v) c h w')
-        out = self.conv(input)
-        out = rearrange(out, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
-
-        return out
-
-
-class AngConv(nn.Module):
-    def __init__(self, angRes, channel_in, channel_out):
-        super(AngConv, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(channel_in, channel_out, kernel_size=angRes, stride=1, padding=0, bias=False),
-            nn.LeakyReLU(0.1, True),
-            nn.Conv2d(channel_out, angRes * angRes * channel_out, kernel_size=1, stride=1, padding=0, bias=False),
-            nn.LeakyReLU(0.1, True),
-            nn.PixelShuffle(angRes))
-
-    def forward(self, x):
-        b, u, v, c, h, w = x.shape
-        input_ang = rearrange(x, 'b u v c h w -> (b h w) c u v')
-        out = self.conv(input_ang)
-        out = rearrange(out, '(b h w) c u v -> b u v c h w', b=b, h=h, w=w)
-
-        return out
-
-
-class EpiConv(nn.Module):
-    def __init__(self, angRes, channel_in, channel_out):
-        super(EpiConv, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(channel_in, channel_out, kernel_size=angRes, stride=1, padding=(0, angRes//2), bias=False),
-            nn.LeakyReLU(0.1, True),
-            nn.Conv2d(channel_out, angRes * channel_out, kernel_size=1, stride=1, padding=0, bias=False),
-            nn.LeakyReLU(0.1, True),
-            PixelShuffle1D(angRes))
-
-    def forward(self, x):
-        b, u, v, c, h, w = x.shape
-        input_epi = rearrange(x, 'b u v c h w -> (b u h) c v w')
-        out = self.conv(input_epi)
-        out = rearrange(out, '(b u h) c v w -> b u v c h w', b=b, u=u, h=h)
-
-        return out
-
-
-class PixelShuffle1D(nn.Module):
-    def __init__(self, factor):
-        super(PixelShuffle1D, self).__init__()
-        self.factor = factor
-
-    def forward(self, x):
-        b, fc, h, w = x.shape
-        c = fc // self.factor
-        # 重新排列张量：
-        # 将输入张量从形状 (b, fc, h, w) 转换为 (b, c, h * factor, w)
-        # 这一步通过 view() 实现，相当于将通道维度 "拆分" 并扩展到空间维度
-        return x.view(b, c, h * self.factor, w)
-
 # this part in the article is DM-block not DAblock
 class DABlock(nn.Module):
     def __init__(self, channels):
@@ -251,16 +142,16 @@ class DABlock(nn.Module):
         # 使用退化代码生成每个位置的卷积核： (b, 64*9, u, v) -> 卷积核 shape: (b*u*v, 64*9)
         kernel = self.generate_kernel(code_array)  # b, 64 * 9, u, v
         kernel = rearrange(kernel, 'b c u v -> (b u v) c')
-
+        # kernel 400 576
         # 使用自定义卷积核进行group-wise卷积，每个位置使用不同核
         fea_spa = self.relu(F.conv2d(
             input_spa,
-            kernel.contiguous().view(-1, 1, 3, 3),  # 每组一个3x3卷积核
+            kernel.contiguous().view(-1, 1, 3, 3),  # 每组一个3x3卷积核 reshape 后 25600 1 3 3
             groups=b * u * v * c,
             padding=1
         ))
 
-        # 还原为标准格式 (b u v) c h w
+        # 还原为标准格式 (b u v) c h w 400 64 32 32
         fea_spa = rearrange(fea_spa, '1 (b u v c) h w -> (b u v) c h w', b=b, u=u, v=v, c=c)
         # 特征通道映射
         fea_spa_da = self.conv_1x1(fea_spa)
@@ -355,13 +246,14 @@ class Gen_Code(nn.Module):
 
         # 对高斯核进行归一化，使其所有元素和为1，归一化维度为[1,2]（即核尺寸维度）
         kernel = kernel / kernel.sum([1, 2], keepdim=True)
-
+        # kernel 400 21 21
         # 将高斯核的维度重排以适应 gen_code 中的卷积输入
         # 输入shape 从 (b*u*v, h, w) 重排为 (b, h*w, u, v)
         # 说明：这里 kernel 原本的批量维度为 (b * u * v)，重组后将 h*w 作为新通道数
         kernel = rearrange(kernel, '(b u v) h w -> b (h w) u v', b=b, u=u, v=v)
+        # after rearrange 16 441 5 5
         code = self.gen_code(kernel)
-
+        # (16,15 ,5 ,5)
         return code
 
 

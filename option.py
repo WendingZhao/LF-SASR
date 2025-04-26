@@ -11,9 +11,9 @@ parser.add_argument("--scale_factor", type=int, default=4, help="4, 2")
 # The following setting of hyper-parameter is equivalent as commonly used Bicubic kernel
 parser.add_argument('--blur_kernel', type=int, default=21, help='size of blur kernels')
 parser.add_argument('--blur_type', type=str, default='iso_gaussian', help='blur types (iso_gaussian | aniso_gaussian)')
-parser.add_argument('--noise', type=float, default=0.0, help='noise level')
+parser.add_argument('--noise', type=float, default=1.0, help='noise level')
 parser.add_argument('--sig_min', type=float, default=0.0, help='minimum sigma of isotropic Gaussian blurs')
-parser.add_argument('--sig_max', type=float, default=0.0, help='maximum sigma of isotropic Gaussian blurs')
+parser.add_argument('--sig_max', type=float, default=4.0, help='maximum sigma of isotropic Gaussian blurs')
 parser.add_argument('--sig', type=float, default=0.0, help='specific sigma of isotropic Gaussian blurs')
 parser.add_argument('--lambda_min', type=float, default=0.0, help='minimum value for the eigenvalue of anisotropic Gaussian blurs')
 parser.add_argument('--lambda_max', type=float, default=0.0, help='maximum value for the eigenvalue of anisotropic Gaussian blurs')
@@ -23,9 +23,14 @@ parser.add_argument('--theta', type=float, default=0.0, help='rotation angle of 
 
 parser.add_argument('--model_name', type=str, default='EPIT', help="model name")
 parser.add_argument("--use_pre_ckpt", type=bool, default=False, help="use pre model ckpt")
-parser.add_argument("--path_pre_pth", type=str, default='./pth/', help="path for pre model ckpt")
-parser.add_argument('--path_for_train', type=str, default='../autodl-tmp/Data_SASR/data_for_training/')
-parser.add_argument('--path_for_test', type=str, default='../autodl-tmp/Data_SASR/data_for_test/')
+parser.add_argument("--path_pre_pth", type=str, default='./pth/', help="path for pre model ckpt")\
+
+# parser.add_argument('--path_for_train', type=str, default='../autodl-tmp/Data_SASR/data_for_training/')
+# parser.add_argument('--path_for_test', type=str, default='../autodl-tmp/Data_SASR/data_for_test/')
+
+parser.add_argument('--path_for_train', type=str, default='../Data_SASR/data_for_training/')
+parser.add_argument('--path_for_test', type=str, default='../Data_SASR/data_for_test/')
+
 parser.add_argument('--path_log', type=str, default='../log_epit/')
 
 parser.add_argument('--batch_size', type=int, default=4)
