@@ -9,4 +9,4 @@ log_my
 log_transfomer
 log_transfomer_2
 train_degradation.py
-pth
+pth/
