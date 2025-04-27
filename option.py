@@ -25,11 +25,11 @@ parser.add_argument('--model_name', type=str, default='EPIT', help="model name")
 parser.add_argument("--use_pre_ckpt", type=bool, default=False, help="use pre model ckpt")
 parser.add_argument("--path_pre_pth", type=str, default='./pth/', help="path for pre model ckpt")\
 
-# parser.add_argument('--path_for_train', type=str, default='../autodl-tmp/Data_SASR/data_for_training/')
-# parser.add_argument('--path_for_test', type=str, default='../autodl-tmp/Data_SASR/data_for_test/')
+parser.add_argument('--path_for_train', type=str, default='../autodl-tmp/Data_SASR/data_for_training/')
+parser.add_argument('--path_for_test', type=str, default='../autodl-tmp/Data_SASR/data_for_test/')
 
-parser.add_argument('--path_for_train', type=str, default='../Data_SASR/data_for_training/')
-parser.add_argument('--path_for_test', type=str, default='../Data_SASR/data_for_test/')
+# parser.add_argument('--path_for_train', type=str, default='../Data_SASR/data_for_training/')
+# parser.add_argument('--path_for_test', type=str, default='../Data_SASR/data_for_test/')
 
 parser.add_argument('--path_log', type=str, default='../log_epit/')
 

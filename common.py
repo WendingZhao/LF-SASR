@@ -192,9 +192,10 @@ def train(train_loader, device, net, criterion, optimizer):
             LF_target = LF
             # info is a list of tensors [(4 21 21) (4,) (4,) ]
             # the default value is all 0 except the sigmas has a value of 1e-6
-            gt_blur = sigmas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, 1, args.angRes, args.angRes) / 4
-            gt_noise = noise_levels.repeat(1, 1, args.angRes, args.angRes)
-            info = [kernels, gt_blur, gt_noise]
+            gt_blur = sigmas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, 1, args.angRes_out, args.angRes_out) / 4
+
+            gt_noise = noise_levels.repeat(1, 1, args.angRes_out, args.angRes_out)
+            info = [kernels.to(device), gt_blur.to(device), gt_noise.to(device)]
         elif args.task == 'ASR':
             angFactor = (args.angRes_out - 1) // (args.angRes_in - 1)
             LF_sampled = LF[:, :, ::angFactor, ::angFactor, :, :]
@@ -208,6 +209,7 @@ def train(train_loader, device, net, criterion, optimizer):
         LF_input = LF_input.to(device)      # low resolution
         LF_target = LF_target.to(device)    # high resolution
         net.train()
+
         LF_out = net(LF_input, info)
         loss = criterion(LF_out, LF_target, info)
 

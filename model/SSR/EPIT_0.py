@@ -36,8 +36,7 @@ class get_model(nn.Module):
 
         Groups = []
         for i in range(5):
-            Groups.append(DABlock(channels))
-            Groups.append(AltFilter(self.angRes, channels))
+            Groups.append(BasicGroup(self.angRes,channels))
         # 这个指针指向了四个BasicGroup模块的列表
         self.Group = nn.Sequential(*Groups)
 
@@ -70,13 +69,12 @@ class get_model(nn.Module):
 
         [kernels, sigmas, noise_levels]=info
         code = torch.cat((self.gen_code(sigmas), noise_levels), dim=1)
-
+        tmp1=buffer
         # Deep Spatial-Angular Correlation Learning
         for i in range(5):
-            buffer=buffer.rearrange('b c (u v) h w -> b u v c h w',u=u,v=v)
             buffer = self.Group[i](buffer, code)
         # buffer = self.altblock(buffer,code) + buffer # res connect +alt learning
-
+        buffer=buffer+tmp1
         # UP-Sampling
         buffer = rearrange(buffer, 'b c (u v) h w -> b c (u h) (v w)', u=u, v=v)
         y = self.upsampling(buffer)
@@ -89,37 +87,24 @@ class get_model(nn.Module):
         return out
 
 class BasicGroup(nn.Module):
-    def __init__(self, n_block, angRes, channels):
+    def __init__(self, angRes, channels):
         super(BasicGroup, self).__init__()
         # 退化感知模块，负责根据 code 调整特征
         self.DAB = DABlock(channels)
 
-        # n个distg block
-        self.n_block = n_block
-        Blocks = []
-        for i in range(n_block):
-            Blocks.append(AltFilter(angRes, channels))
-
-        # 合并block
-        self.block = nn.Sequential(*Blocks)
-        self.conv = nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.altblock=AltFilter(angRes, channels)
 
     def forward(self, x, code):
+        tmp=x
+        x=rearrange(x,'b c (u v) h w -> b u v c h w',u=5,v=5)
         b, u, v, c, h, w = x.shape
 
         buffer = self.DAB(x, code)
 
-        for i in range(self.n_block):
-            buffer = self.block[i](buffer)
+        buffer=rearrange(buffer,'b u v c h w -> b c (u v) h w')
+        buffer=self.altblock(buffer)
 
-        # 打平视角维度，方便 2D 卷积处理
-        buffer = rearrange(buffer, 'b u v c h w -> (b u v) c h w')
-
-        out = self.conv(buffer)
-
-        out = rearrange(out, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
-
-        return out + x # res module
+        return buffer+tmp # res module
 
 
 # transformer可用于提取epi序列的长依赖
@@ -204,7 +189,7 @@ class AltFilter(nn.Module):
             nn.Conv3d(channels, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False),
         )
 
-    def forward(self, buffer, code):
+    def forward(self, buffer):
         # 4 64 25 32 32
         shortcut = buffer
         # res connect
@@ -369,7 +354,8 @@ class Gen_Code(nn.Module):
         # 计算高斯核，注意 sigma: 对每个样本都要计算一个对应的高斯核
         # 公式：exp( -(xx^2+yy^2) / (2 * sigma^2) )，
         # 这里 sigma.view(-1, 1, 1) 将 sigma 展平，以适应每个样本计算
-        kernel = torch.exp(self.xx_yy.to(sigma.device) / (2. * sigma.view(-1, 1, 1) ** 2))
+        kernel = torch.exp(self.xx_yy.to(sigma.device) / (2. * sigma.view(-1, 1, 1) ** 2)).to(sigma.device)
+        # kernel 100 21 21? xxyy 12121
 
         # 对高斯核进行归一化，使其所有元素和为1，归一化维度为[1,2]（即核尺寸维度）
         kernel = kernel / kernel.sum([1, 2], keepdim=True)
@@ -396,6 +382,7 @@ if __name__ == "__main__":
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     net.to(device)
+    print(net)
     lf=torch.randn(batch_size, 3,angRes, angRes,  32, 32).to(device)
 
     kernels=torch.randn(batch_size, 21,21).to(device)
@@ -413,6 +400,11 @@ if __name__ == "__main__":
     print('   Number of FLOPs: %.2fG' % (flops / 1e9))
 
 '''
+   the origin
    Number of parameters: 1.14M
    Number of FLOPs: 217.22G
+   
+   the modified
+    Number of parameters: 1.41M
+   Number of FLOPs: 219.37G
 '''
