@@ -16,6 +16,7 @@ if __name__ == '__main__':
     args.angRes_in = 5
     args.angRes_out = 5
 
+    'part code is not finished'
     args.model_name = 'EPIT_0'
     args.start_epoch = 0
     main(args)

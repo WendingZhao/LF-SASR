@@ -243,8 +243,8 @@ class LF_Noise(object):
             noise_level = torch.rand(b, 1, 1, 1, 1,1).to(LF.device)
         else:
             noise_level = torch.ones(b, 1, 1, 1, 1,1).to(LF.device)
-        noise_level = noise_level * self.noise
-        noise = torch.randn_like(LF).mul_(noise_level / 255)
+        noise_level = noise_level * self.noise/75
+        noise = torch.randn_like(LF).mul_(noise_level *75 / 255)
         LF.add_(noise)
 
         return [LF, noise_level.squeeze(1).squeeze(1)]

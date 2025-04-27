@@ -118,39 +118,48 @@ def main(args):
         # ''' Validation '''
         step = 5
         if (idx_epoch + 1)%step==1 or idx_epoch > 60:
-            with torch.no_grad():
-                ''' Create Excel for PSNR/SSIM '''
-                excel_file = ExcelFile()
+            for noise in [0, 15]: # defult=[0, 15, 50]
+                args.noise_test = noise
+                for sig in [0, 1.5]: # default=[0, 1.5, 3]
+                    args.sig = sig
+                    test_Names, test_Loaders, length_of_tests = MultiTestSetDataLoader(args)
+                    with torch.no_grad():
+                        ''' Create Excel for PSNR/SSIM '''
+                        excel_file = ExcelFile()
 
-                psnr_list = []
-                ssim_list = []
-                for index, test_name in enumerate(test_Names):
-                    test_loader = test_Loaders[index]
+                        psnr_list = []
+                        ssim_list = []
+                        for index, test_name in enumerate(test_Names):
+                            torch.cuda.empty_cache()
+                            test_loader = test_Loaders[index]
 
-                    epoch_dir = val_dir.joinpath('VAL_epoch_%02d' % (idx_epoch + 1))
-                    epoch_dir.mkdir(exist_ok=True)
-                    save_dir = epoch_dir.joinpath(test_name)
-                    save_dir.mkdir(exist_ok=True)
+                            epoch_dir = val_dir.joinpath('VAL_epoch_%02d' % (idx_epoch + 1))
+                            epoch_dir.mkdir(exist_ok=True)
+                            save_dir = epoch_dir.joinpath(test_name)
+                            save_dir.mkdir(exist_ok=True)
 
-                    psnr, ssim = test(args, test_name, test_loader, net, excel_file, save_dir)
-                    excel_file.write_sheet(test_name, 'Average', 'PSNR', psnr)
-                    excel_file.write_sheet(test_name, 'Average', 'SSIM', ssim)
-                    excel_file.add_count(2)
+                            psnr, ssim = test(args, test_name, test_loader, net, excel_file, save_dir)
 
-                    psnr_list.append(psnr)
-                    ssim_list.append(ssim)
+                            # excel_file.write_sheet(test_name, 'Average', 'PSNR', psnr)
+                            # excel_file.write_sheet(test_name, 'Average', 'SSIM', ssim)
+                            # excel_file.add_count(2)
 
-                    logger.log_string('The %dth Test on %s, psnr/ssim is %.2f/%.3f' % (
-                    idx_epoch + 1, test_name, psnr, ssim))
+                            psnr_list.append(psnr)
+                            ssim_list.append(ssim)
+
+                            logger.log_string('The %dth Test on %s, psnr/ssim is %.2f/%.3f(noise--%f,sig---%f)' % (
+                            idx_epoch , test_name, psnr, ssim,args.noise_test,args.sig))
+                            pass
+                        psnr_mean = np.array(psnr_list).mean()
+                        ssim_mean = np.array(ssim_list).mean()
+                        # excel_file.write_sheet('ALL', 'Average', 'PSNR', psnr_mean)
+                        # excel_file.write_sheet('ALL', 'Average', 'SSIM', ssim_mean)
+                        logger.log_string('The mean psnr on testsets is %.5f, mean ssim is %.5f(noise--%f,sig---%f)' % (psnr_mean, ssim_mean,args.noise_test,args.sig))
+                        logger.log_string('The mean psnr on testsets is %.5f, mean ssim is %.5f(noise--%f,sig---%f)' % (psnr_mean, ssim_mean,args.noise_test,args.sig))
+                        # excel_file.xlsx_file.save(str(epoch_dir) + '/evaluation.xlsx')
+                        pass
                     pass
-                psnr_mean = np.array(psnr_list).mean()
-                ssim_mean = np.array(ssim_list).mean()
-                excel_file.write_sheet('ALL', 'Average', 'PSNR', psnr_mean)
-                excel_file.write_sheet('ALL', 'Average', 'SSIM', ssim_mean)
-                logger.log_string('The mean psnr on testsets is %.5f, mean ssim is %.5f' % (psnr_mean, ssim_mean))
-                excel_file.xlsx_file.save(str(epoch_dir) + '/evaluation.xlsx')
-                pass
-            pass
+            idx_epoch+=1
 
         ''' scheduler '''
         scheduler.step()
@@ -235,7 +244,7 @@ def test(args, test_name, test_loader, net, excel_file, save_dir=None):
         sig=args.sig,
         lambda_1=args.lambda_1, lambda_2=args.lambda_2,
     )
-    add_noise = LF_Noise(noise=args.noise, random=True)
+    add_noise = LF_Noise(noise=args.noise_test, random=False)
 
     for idx_iter, (LF, LF_name) in tqdm(enumerate(test_loader), total=len(test_loader), ncols=70):
         ''' degradation '''
@@ -249,7 +258,12 @@ def test(args, test_name, test_loader, net, excel_file, save_dir=None):
 
             LF_input = LF_degraded
             LF_target = LF
-            info = [kernels, sigmas, noise_levels]
+            # the info should change subsequently
+            gt_blur = sigmas.unsqueeze(1).unsqueeze(1).unsqueeze(1).repeat(1, 1, args.angRes_out, args.angRes_out) / 4
+
+            gt_noise = noise_levels.repeat(1, 1, args.angRes_out, args.angRes_out)
+            info = [kernels.to(args.device), gt_blur.to(args.device), gt_noise.to(args.device)]
+
         elif args.task == 'ASR':
             angFactor = (args.angRes_out - 1) // (args.angRes_in - 1)
             LF_sampled = LF[:, :, ::angFactor, ::angFactor, :, :]
@@ -281,9 +295,9 @@ def test(args, test_name, test_loader, net, excel_file, save_dir=None):
 
         ''' Calculate the PSNR & SSIM '''
         psnr, ssim = cal_metrics(args, LF_target, LF_out)
-        excel_file.write_sheet(test_name, LF_name[0], 'PSNR', psnr)
-        excel_file.write_sheet(test_name, LF_name[0], 'SSIM', ssim)
-        excel_file.add_count(1)
+        # excel_file.write_sheet(test_name, LF_name[0], 'PSNR', psnr)
+        # excel_file.write_sheet(test_name, LF_name[0], 'SSIM', ssim)
+        # excel_file.add_count(1)
         psnr_list.append(psnr)
         ssim_list.append(ssim)
 
