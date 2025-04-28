@@ -274,6 +274,7 @@ class DABlock(nn.Module):
             key=code_embed,  # (B*U*V, H*W, C)
             value=code_embed  # (B*U*V, H*W, C)
         )
+        # qkv
 
         # 4. 将注意力输出与原始 x 融合（例如逐元素相加）
         x_attn = rearrange(attn_out, '(b u v) (h w) c -> b u v c h w',

@@ -23,8 +23,8 @@ parser.add_argument('--lambda_2', type=float, default=0.0, help='another eigenva
 parser.add_argument('--theta', type=float, default=0.0, help='rotation angle of anisotropic Gaussian blurs [0, 180]')
 
 parser.add_argument('--model_name', type=str, default='EPIT', help="model name")
-parser.add_argument("--use_pre_ckpt", type=bool, default=False, help="use pre model ckpt")
-parser.add_argument("--path_pre_pth", type=str, default='./pth/', help="path for pre model ckpt")\
+parser.add_argument("--use_pre_ckpt", type=bool, default=True, help="use pre model ckpt")
+parser.add_argument("--path_pre_pth", type=str, default='./pth/EPIT_0_5x5_4x_epoch_32_model.pth', help="path for pre model ckpt")\
 
 parser.add_argument('--path_for_train', type=str, default='../autodl-tmp/Data_SASR/data_for_training/')
 parser.add_argument('--path_for_test', type=str, default='../autodl-tmp/Data_SASR/data_for_test/')

@@ -2,20 +2,19 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 import torch.nn.functional as F
-
+import math
 
 class Net(nn.Module):
     def __init__(self, factor, angRes):
         super(Net, self).__init__()
         channels = 64
+        self.angRes=angRes
         # 定义级联分组模块的组数与每组的块数
-        n_group = 4
-        n_block = 4
-        self.factor = factor
+        self.scale = factor
         # gencode's input is the number of channel out
         self.gen_code = Gen_Code(15)
         # 初始卷积层：将输入的RGB图像（3通道）映射到64个特征通道
-        self.conv_init0 = nn.Sequential(nn.Conv3d(1, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False))
+        self.conv_init0 = nn.Sequential(nn.Conv3d(3, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False))
         self.conv_init = nn.Sequential(
             nn.Conv3d(channels, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False),
             nn.LeakyReLU(0.2, inplace=True),
@@ -27,13 +26,25 @@ class Net(nn.Module):
 
         # 深层级联卷积组：使用 CascadeGroups 模块，
         # 参数包括分组数n_group、每组中的块数n_block、角度分辨率angRes（具体用于配置卷积操作），以及通道数channels
-        self.deep_conv = CascadeGroups(n_group, angRes, channels)
+        Groups = []
+        for i in range(5):
+            Groups.append(BasicGroup(self.angRes,channels))
+        # 这个指针指向了四个BasicGroup模块的列表
+        self.Group = nn.Sequential(*Groups)
 
-        self.upsampling = nn.Sequential(
-            nn.Conv2d(channels, channels * self.scale ** 2, kernel_size=1, padding=0, bias=False),
-            nn.PixelShuffle(self.scale),
-            nn.LeakyReLU(0.2),
-            nn.Conv2d(channels, 1, kernel_size=3, padding=1, bias=False),
+        self.up_sample = nn.Sequential(
+            # 1. 使用1x1卷积将channels扩展到 channels * factor**2，
+            # 为后续PixelShuffle重排做准备（使通道数变为上采样因子对应的平方倍
+            nn.Conv2d(channels, channels * factor ** 2, kernel_size=1, stride=1, padding=0, bias=False),
+            # 2. 使用LeakyReLU激活函数，参数0.1指定负半轴斜率，加速非线性映射
+            nn.LeakyReLU(0.1, True),
+
+            # 3. PixelShuffle：利用上一步骤扩大后的通道信息，重排为高分辨率特征图
+            # PixelShuffle会把多余的通道重整为空间维度，实现上采样
+            nn.PixelShuffle(factor),
+
+            # 4. 最后再用1x1卷积将通道数映射回3，生成输出RGB图像
+            nn.Conv2d(channels, 3, kernel_size=1, stride=1, padding=0, bias=False)
         )
 
     def forward(self, data):
@@ -45,13 +56,19 @@ class Net(nn.Module):
         # lr_ycbcr = LF_rgb2ycbcr(lr)
         # sr_ycbcr = LF_interpolate(lr_ycbcr, scale_factor=self.scale, mode='bicubic')
 
+        x = rearrange(lr, 'b u v c h w -> b c (u v) h w')
 
-        x = rearrange(lf, 'b u v c h w -> (b u v) c h w')
-        buffer = self.initial_conv(x)
-        buffer = rearrange(buffer, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
+        buffer = self.conv_init0(x)
+        buffer = self.conv_init(buffer) + buffer # res connect
+
+        tmp1=buffer
+
         # deep conv 四个模块
-        buffer = self.deep_conv(buffer, code)
-        buffer = rearrange(buffer, 'b u v c h w -> (b u v) c h w')
+        for i in range(5):
+            buffer = self.Group[i](buffer, code)
+
+        buffer=buffer+tmp1
+        buffer = rearrange(buffer, 'b c (u v) h w -> (b u v) c h w',u=u,v=v)
 
         # upsample
         out = self.up_sample(buffer)
@@ -60,34 +77,6 @@ class Net(nn.Module):
         return out
 
 
-class CascadeGroups(nn.Module):
-    def __init__(self, n_group, n_block, angRes, channels):
-        super(CascadeGroups, self).__init__()
-        self.n_group = n_group
-        Groups = []
-        for i in range(n_group):
-            Groups.append(BasicGroup(n_block, angRes, channels))
-        # 这个指针指向了四个BasicGroup模块的列表
-        self.Group = nn.Sequential(*Groups)
-
-        # 3*3 conv，等同于init conv
-        self.conv = nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1, bias=False)
-
-    def forward(self, x, code):
-        b, u, v, c, h, w = x.shape
-        buffer = x
-        # 依次通过各个 BasicGroup 进行特征处理，
-        # 每个组都会接收当前的 buffer 和生成的条件编码 code
-        for i in range(self.n_group):
-            buffer = self.Group[i](buffer, code)
-
-        buffer = rearrange(buffer, 'b u v c h w -> (b u v) c h w')
-
-        out = self.conv(buffer)
-        out = rearrange(out, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
-
-        return out + x # 残差模块
-
 
 class BasicGroup(nn.Module):
     def __init__(self, angRes, channels):
@@ -95,32 +84,19 @@ class BasicGroup(nn.Module):
         # 退化感知模块，负责根据 code 调整特征
         self.DAB = DABlock(channels)
 
-        # # n个distg block
-        # self.n_block = n_block
-        # Blocks = []
-        # for i in range(n_block):
-        #     Blocks.append(DistgBlock(angRes, channels))
-        #
-        # # 合并block
-        # self.block = nn.Sequential(*Blocks)
-        self.conv = nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.altblock=AltFilter(angRes, channels)
 
     def forward(self, x, code):
+        tmp=x
+        x=rearrange(x,'b c (u v) h w -> b u v c h w',u=5,v=5)
         b, u, v, c, h, w = x.shape
 
         buffer = self.DAB(x, code)
 
-        for i in range(self.n_block):
-            buffer = self.block[i](buffer)
+        buffer=rearrange(buffer,'b u v c h w -> b c (u v) h w')
+        buffer=self.altblock(buffer)
 
-        # 打平视角维度，方便 2D 卷积处理
-        buffer = rearrange(buffer, 'b u v c h w -> (b u v) c h w')
-
-        out = self.conv(buffer)
-
-        out = rearrange(out, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
-
-        return out + x # res module
+        return buffer+tmp # res module
 
 
 # this part in the article is DM-block not DAblock
@@ -262,11 +238,132 @@ class Gen_Code(nn.Module):
         return code
 
 
+# transformer可用于提取epi序列的长依赖
+class BasicTrans(nn.Module):
+    def __init__(self, channels, spa_dim, num_heads=8, dropout=0.):
+        super(BasicTrans, self).__init__()
+        # 特征映射
+        self.linear_in = nn.Linear(channels, spa_dim, bias=False)
+        self.norm = nn.LayerNorm(spa_dim)
+        self.attention = nn.MultiheadAttention(spa_dim, num_heads, dropout, bias=False)
+        # initalize the weight of attention through kaiming init
+        nn.init.kaiming_uniform_(self.attention.in_proj_weight, a=math.sqrt(5))
+
+        self.attention.out_proj.bias = None
+        self.attention.in_proj_bias = None
+
+        self.feed_forward = nn.Sequential(
+            nn.LayerNorm(spa_dim),
+            nn.Linear(spa_dim, spa_dim*2, bias=False),
+            nn.ReLU(True),
+            nn.Dropout(dropout),
+            nn.Linear(spa_dim*2, spa_dim, bias=False),
+            nn.Dropout(dropout)
+        )
+
+        # 特征反映射
+        # linear_out: Linear(in_features=128, out_features=64, bias=False)
+        self.linear_out = nn.Linear(spa_dim, channels, bias=False)
+
+    def gen_mask(self, h: int, w: int, k_h: int, k_w: int):
+        # 根据局部感受野生成注意力mask
+        attn_mask = torch.zeros([h, w, h, w])
+        k_h_left = k_h // 2
+        k_h_right = k_h - k_h_left
+        k_w_left = k_w // 2
+        k_w_right = k_w - k_w_left
+        for i in range(h):
+            for j in range(w):
+                temp = torch.zeros(h, w)
+                temp[max(0, i - k_h_left):min(h, i + k_h_right), max(0, j - k_w_left):min(w, j + k_w_right)] = 1
+                attn_mask[i, j, :, :] = temp
+
+        attn_mask = rearrange(attn_mask, 'a b c d -> (a b) (c d)')
+        attn_mask = attn_mask.float().masked_fill(attn_mask == 0, float('-inf')).masked_fill(attn_mask == 1, float(0.0))
+
+        return attn_mask
+
+    def forward(self, buffer):
+        [_, _, n, v, w] = buffer.size()
+        attn_mask = self.gen_mask(v, w, self.mask_field[0], self.mask_field[1]).to(buffer.device)
+
+        # 展平为 token 序列
+        epi_token = rearrange(buffer, 'b c n v w -> (v w) (b n) c')
+        epi_token = self.linear_in(epi_token)
+
+        epi_token_norm = self.norm(epi_token)
+        epi_token = self.attention(query=epi_token_norm,
+                                   key=epi_token_norm,
+                                   value=epi_token,
+                                   attn_mask=attn_mask,
+                                   need_weights=False)[0] + epi_token
+
+        epi_token = self.feed_forward(epi_token) + epi_token
+        epi_token = self.linear_out(epi_token)
+        buffer = rearrange(epi_token, '(v w) (b n) c -> b c n v w', v=v, w=w, n=n)
+
+        return buffer
+
+
+class AltFilter(nn.Module):
+    def __init__(self, angRes, channels):
+        super(AltFilter, self).__init__()
+
+        self.angRes = angRes
+
+        self.epi_trans = BasicTrans(channels, channels*2)
+        self.conv = nn.Sequential(
+            nn.Conv3d(channels, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(channels, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv3d(channels, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False),
+        )
+
+    def forward(self, buffer):
+        # 4 64 25 32 32
+        shortcut = buffer
+        # res connect
+        [_, _, _, h, w] = buffer.size()
+
+        # 设置注意力窗口大小
+        self.epi_trans.mask_field = [self.angRes * 2, 11] #list [10,11]
+
+        # Horizontal
+        # 4 64 160 5 32
+        buffer = rearrange(buffer, 'b c (u v) h w -> b c (v w) u h', u=self.angRes, v=self.angRes)
+        buffer = self.epi_trans(buffer)
+
+        # 4 64 25 32 32
+        buffer = rearrange(buffer, 'b c (v w) u h -> b c (u v) h w', u=self.angRes, v=self.angRes, h=h, w=w)
+        buffer = self.conv(buffer) + shortcut
+
+        # Vertical
+        buffer = rearrange(buffer, 'b c (u v) h w -> b c (u h) v w', u=self.angRes, v=self.angRes)
+        buffer = self.epi_trans(buffer)
+        buffer = rearrange(buffer, 'b c (u h) v w -> b c (u v) h w', u=self.angRes, v=self.angRes, h=h, w=w)
+        buffer = self.conv(buffer) + shortcut
+
+        return buffer
+
+
+class get_loss(nn.Module):
+    def __init__(self, args):
+        super(get_loss, self).__init__()
+        self.criterion_Loss = torch.nn.L1Loss()
+
+    def forward(self, out, HR, degrade_info=None):
+        loss = self.criterion_Loss(out['SR'], HR)
+
+        return loss
+
+
+
 if __name__ == "__main__":
     angRes = 5
     factor = 4
 
-    batch_size=16
+    batch_size=4
     net = Net(factor, angRes)
     # print(net)
     from thop import profile

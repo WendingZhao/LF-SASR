@@ -25,7 +25,6 @@ class get_model(nn.Module):
             nn.LeakyReLU(0.2, inplace=True),
         )
 
-
         ############# Deep Spatial-Angular Correlation Learning #############
         # self.altblock = nn.Sequential(
         #     AltFilter(self.angRes, channels),
@@ -55,8 +54,6 @@ class get_model(nn.Module):
 
         # rgb2ycbcr
         # 32 32 128 128
-
-        # ycbcr banned
         lr_ycbcr = LF_rgb2ycbcr(lr)
         sr_ycbcr = LF_interpolate(lr_ycbcr, scale_factor=self.scale, mode='bicubic')
 

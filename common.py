@@ -155,11 +155,11 @@ def main(args):
                         # excel_file.write_sheet('ALL', 'Average', 'PSNR', psnr_mean)
                         # excel_file.write_sheet('ALL', 'Average', 'SSIM', ssim_mean)
                         logger.log_string('The mean psnr on testsets is %.5f, mean ssim is %.5f(noise--%f,sig---%f)' % (psnr_mean, ssim_mean,args.noise_test,args.sig))
-                        logger.log_string('The mean psnr on testsets is %.5f, mean ssim is %.5f(noise--%f,sig---%f)' % (psnr_mean, ssim_mean,args.noise_test,args.sig))
+                        # logger.log_string('The mean psnr on testsets is %.5f, mean ssim is %.5f(noise--%f,sig---%f)' % (psnr_mean, ssim_mean,args.noise_test,args.sig))
                         # excel_file.xlsx_file.save(str(epoch_dir) + '/evaluation.xlsx')
                         pass
                     pass
-            idx_epoch+=1
+
 
         ''' scheduler '''
         scheduler.step()
@@ -303,6 +303,8 @@ def test(args, test_name, test_loader, net, excel_file, save_dir=None):
 
         ''' Save RGB '''
         if save_dir is not None:
+            pass # temporary banned for this part
+
             save_dir_ = save_dir.joinpath(LF_name[0])
             save_dir_.mkdir(exist_ok=True)
             views_dir = save_dir_.joinpath('views')
