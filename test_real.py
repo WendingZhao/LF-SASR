@@ -20,11 +20,12 @@ parser.add_argument('--num_workers', type=int, default=4)
 parser.add_argument('--model_name', type=str, default='LF-DAnet')
 parser.add_argument("--angRes", type=int, default=5, help="angular resolution")
 parser.add_argument("--upfactor", type=int, default=4, help="upscale factor")
-parser.add_argument('--model_path', type=str, default='./log/LF-DAnet_4xSR_test.tar')
+parser.add_argument('--model_path', type=str, default='./log/LF-DAnet_4xSR_paper.tar')
 parser.add_argument('--crop', type=bool, default=True)
 parser.add_argument("--patchsize_test", type=int, default=32, help="patchsize of LR images for inference")
 parser.add_argument("--minibatch_test", type=int, default=10, help="size of minibatch for inference")
-parser.add_argument('--testset_dir', type=str, default='../Data/Validation_MDSR/')
+# parser.add_argument('--testset_dir', type=str, default='../autodl-tmp/Data/Test_MDSR/')
+parser.add_argument('--testset_dir', type=str, default='../Data/Test_MDSR/')
 
 args = parser.parse_args()
 
@@ -37,9 +38,9 @@ def train(args):
     model = torch.load(args.model_path, map_location={'cuda:0': args.device})
     net.load_state_dict(model['state_dict'], strict=False)
 
-    for noise in [0, 15]:
+    for noise in [0, 15,50]:
         args.noise = noise
-        for sig in [0, 1.5]:
+        for sig in [0, 1.5,3]:
             args.sig = sig
             test_Names, test_Loaders, length_of_tests = MultiTestSetDataLoader(args)
             for index, test_name in enumerate(test_Names):

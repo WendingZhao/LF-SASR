@@ -15,7 +15,7 @@ class get_model(nn.Module):
         self.gen_code = Gen_Code(15)
 
         #################### Initial Feature Extraction #####################
-        self.conv_init0 = nn.Sequential(nn.Conv3d(1, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False))
+        self.conv_init0 = nn.Sequential(nn.Conv3d(3, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False))
         self.conv_init = nn.Sequential(
             nn.Conv3d(channels, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False),
             nn.LeakyReLU(0.2, inplace=True),
@@ -24,6 +24,7 @@ class get_model(nn.Module):
             nn.Conv3d(channels, channels, kernel_size=(1, 3, 3), padding=(0, 1, 1), bias=False),
             nn.LeakyReLU(0.2, inplace=True),
         )
+
 
         ############# Deep Spatial-Angular Correlation Learning #############
         # self.altblock = nn.Sequential(
@@ -54,12 +55,14 @@ class get_model(nn.Module):
 
         # rgb2ycbcr
         # 32 32 128 128
-        lr_ycbcr = LF_rgb2ycbcr(lr)
-        sr_ycbcr = LF_interpolate(lr_ycbcr, scale_factor=self.scale, mode='bicubic')
+
+        # ycbcr banned
+        # lr_ycbcr = LF_rgb2ycbcr(lr)
+        sr = LF_interpolate(lr, scale_factor=self.scale, mode='bicubic')
 
         # Initial Feature Extraction
         # x 4 1 25 32 32
-        x = rearrange(lr_ycbcr[:, 0:1, :, :, :, :], 'b c u v h w -> b c (u v) h w')
+        x = rearrange(lr, 'b c u v h w -> b c (u v) h w')
 
         # 4 64 25 32 32
         buffer = self.conv_init0(x)
@@ -81,9 +84,9 @@ class get_model(nn.Module):
         y = rearrange(y, 'b c (u h) (v w) -> b c u v h w', u=u, v=v)
 
         # ycbcr2rgb
-        sr_ycbcr[:, 0:1, :, :, :, :] += y
+        sr += y
         out = {}
-        out['SR'] = LF_ycbcr2rgb(sr_ycbcr)
+        out['SR'] = sr
         return out
 
 class BasicGroup(nn.Module):

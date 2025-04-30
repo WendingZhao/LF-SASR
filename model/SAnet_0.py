@@ -38,10 +38,12 @@ class Net(nn.Module):
     def forward(self, data):
         (lf, blur, noise) = data
         # 级联
+        # data 's epit connect b c u v h w
+        # while the dmnet is 'b u v c h w'
         code = torch.cat((self.gen_code(blur), noise), dim=1)
-        b, u, v, c, h, w = lf.shape
+        b, c,u, v ,h, w = lf.shape
 
-        x = rearrange(lf, 'b u v c h w -> (b u v) c h w')
+        x = rearrange(lf, 'b c u v h w -> (b u v) c h w')
         buffer = self.initial_conv(x)
         buffer = rearrange(buffer, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
         # deep conv 四个模块
@@ -49,8 +51,9 @@ class Net(nn.Module):
         buffer = rearrange(buffer, 'b u v c h w -> (b u v) c h w')
 
         # upsample
-        out = self.up_sample(buffer)
-        out = rearrange(out, '(b u v) c h w -> b u v c h w', b=b, u=u, v=v)
+        buffer = self.up_sample(buffer)
+        out={}
+        out['SR'] = rearrange(buffer, '(b u v) c h w -> b c u v h w', b=b, u=u, v=v)
 
         return out
 
@@ -251,6 +254,7 @@ class Gen_Code(nn.Module):
         # 输入shape 从 (b*u*v, h, w) 重排为 (b, h*w, u, v)
         # 说明：这里 kernel 原本的批量维度为 (b * u * v)，重组后将 h*w 作为新通道数
         kernel = rearrange(kernel, '(b u v) h w -> b (h w) u v', b=b, u=u, v=v)
+
         # after rearrange 16 441 5 5
         code = self.gen_code(kernel)
         # (16,15 ,5 ,5)

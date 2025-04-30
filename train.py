@@ -159,7 +159,7 @@ def train(args):
         save_ckpt(args, net, idx_epoch + 1)
 
         ''' evaluation '''
-        if idx_epoch % 50 == 0:
+        if idx_epoch % 50 == 0 and idx_epoch>=800:
             for noise in [0, 15]: # defult=[0, 15, 50]
                 args.noise = noise
                 for sig in [0, 1.5]: # default=[0, 1.5, 3]
