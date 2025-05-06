@@ -6,6 +6,7 @@ from utils.utility import *
 from utils.dataloader import *
 from model.SAnet_0 import Net
 from numpy import random
+from common_for_dmnet_epit import main_test_dm_epit
 
 from option import args
 args.task = 'SSR'
@@ -39,7 +40,7 @@ if __name__ == '__main__':
 '''
 dmnet test
 '''
-if __name__ == '__main__suspend':
+if __name__ == '__main__SUSPEND':
     args.device = 'cuda:0'
     args.data_list = ['HCI_new', 'HCI_old', 'Stanford_Gantry']
 
@@ -52,3 +53,14 @@ if __name__ == '__main__suspend':
     train(args)
 
 
+if __name__ == '__main__suspend':
+    args.device = 'cuda:0'
+    args.data_list = ['HCI_new', 'HCI_old', 'Stanford_Gantry']
+
+    args.scale_factor = 4
+    args.model_name = 'EPIT'
+    args.path_pre_pth = './pth/SAnet_epit_4xSR_epoch_1000.tar'
+    torch.multiprocessing.set_start_method('spawn')
+
+
+    main_test_dm_epit(args)

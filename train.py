@@ -35,6 +35,7 @@ parser.add_argument('--gamma', type=float, default=0.5, help='learning rate deca
 parser.add_argument('--crop', type=bool, default=True)
 parser.add_argument("--patchsize_test", type=int, default=32, help="patchsize of LR images for inference")
 parser.add_argument("--minibatch_test", type=int, default=10, help="size of minibatch for inference")
+
 # parser.add_argument('--trainset_dir', type=str, default='../autodl-tmp/Train_MDSR/')
 # parser.add_argument('--testset_dir', type=str, default='../autodl-tmp/Test_MDSR/')
 

@@ -13,7 +13,7 @@ from model.SAnet_0 import Net
 def main(args):
     ''' Create Dir for Save'''
     log_dir, checkpoints_dir, val_dir = create_dir(args)
-
+    print(args.patch_for_train)
     ''' Logger '''
     logger = Logger(log_dir, args)
 
@@ -40,7 +40,6 @@ def main(args):
     MODEL_PATH = 'model.' + args.task + '.' + args.model_name
     MODEL = importlib.import_module(MODEL_PATH)
     net = MODEL.get_model(args)
-
 
     ''' Load Pre-Trained PTH '''
     if args.use_pre_ckpt == False:
@@ -98,7 +97,8 @@ def main(args):
         logger.log_string('\nEpoch %d /%s:' % (idx_epoch + 1, args.epoch))
 
         ''' Training '''
-        loss_epoch_train = train(train_loader, device, net, criterion, optimizer)
+        # 默认多一个args
+        loss_epoch_train = train(train_loader, device, net, criterion, optimizer,args)
         logger.log_string('The %dth Train, loss is: %.5f' % (idx_epoch + 1, loss_epoch_train))
 
         ''' Save PTH  '''
@@ -118,10 +118,10 @@ def main(args):
 
         # ''' Validation '''
         step = 5
-        if (idx_epoch + 1)%step==1 or idx_epoch > 60:
-            for noise in [0, 15]: # defult=[0, 15, 50]
+        if (idx_epoch + 1)%step==1 or idx_epoch > 70:
+            for noise in [0, 15,50]: # defult=[0, 15, 50]
                 args.noise_test = noise
-                for sig in [0, 1.5]: # default=[0, 1.5, 3]
+                for sig in [0, 1.5,3]: # default=[0, 1.5, 3]
                     args.sig = sig
                     test_Names, test_Loaders, length_of_tests = MultiTestSetDataLoader(args)
                     with torch.no_grad():
@@ -167,11 +167,11 @@ def main(args):
         pass
     pass
 
-
-def train(train_loader, device, net, criterion, optimizer):
+# 多一个args参数，相较于普通版
+def train(train_loader, device, net, criterion, optimizer,args):
     ''' training one epoch '''
     loss_list = []
-
+    print(args.patch_for_train)
     # set the degradation function
     blur_func = LF_Blur(
         kernel_size=args.blur_kernel,
@@ -379,7 +379,8 @@ def test_for_dmnet(args, test_name, test_loader, net, excel_file, save_dir=None)
         for i in range(0, sub_LF_input.size(0), args.minibatch_for_test):
             tmp = sub_LF_input[i:min(i + args.minibatch_for_test, sub_LF_input.size(0)), :, :, :, :, :]
 
-
+        # LF 1 3 5 5 512 512
+            #
             with torch.no_grad():
                 net.eval()
                 torch.cuda.empty_cache()
@@ -606,3 +607,5 @@ def main_test_dm(args):
 
 
     pass
+
+

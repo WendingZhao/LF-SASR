@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from pathlib import Path
 import logging
-from option import args
+# from option import args
 from einops import rearrange
 import openpyxl
 import torch.nn.functional as F
@@ -73,9 +73,10 @@ def create_dir(args):
 class Logger():
     def __init__(self, log_dir, args):
         self.logger = get_logger(log_dir, args)
+        self.args=args
 
     def log_string(self, str):
-        if args.local_rank <= 0:
+        if self.args.local_rank <= 0:
             self.logger.info(str)
             print(str)
 

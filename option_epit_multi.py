@@ -22,24 +22,25 @@ parser.add_argument('--lambda_1', type=float, default=0.0, help='one eigenvalue 
 parser.add_argument('--lambda_2', type=float, default=0.0, help='another eigenvalue of anisotropic Gaussian blurs')
 parser.add_argument('--theta', type=float, default=0.0, help='rotation angle of anisotropic Gaussian blurs [0, 180]')
 
-parser.add_argument('--model_name', type=str, default='EPIT', help="model name")
+parser.add_argument('--model_name', type=str, default='EPIT_multi', help="model name")
 parser.add_argument("--use_pre_ckpt", type=bool, default=False, help="use pre model ckpt")
-parser.add_argument("--path_pre_pth", type=str, default='./pth/temp_best.pth', help="path for pre model ckpt")\
-
-# parser.add_argument('--path_for_train', type=str, default='../autodl-tmp/Data_SASR/data_for_training/')
-# parser.add_argument('--path_for_test', type=str, default='../autodl-tmp/Data_SASR/data_for_test/')
+parser.add_argument("--path_pre_pth", type=str, default='./pth/temp_best.pth', help="path for pre model ckpt")
+parser.add_argument("--patch_for_train", type=int, default=32, help="patch_for_train")
 
 parser.add_argument('--path_for_train', type=str, default='../Data_SASR/data_for_training/')
 parser.add_argument('--path_for_test', type=str, default='../Data_SASR/data_for_test/')
 
-parser.add_argument('--path_log', type=str, default='../log_epit/')
+# parser.add_argument('--path_for_train', type=str, default='../Data_SASR/data_for_training/')
+# parser.add_argument('--path_for_test', type=str, default='../Data_SASR/data_for_test/')
+
+parser.add_argument('--path_log', type=str, default='../log_epit_multi/')
 
 parser.add_argument('--batch_size', type=int, default=4)
-parser.add_argument('--lr', type=float, default=5e-5, help='initial learning rate')
-parser.add_argument('--decay_rate', type=float, default=0, help='weight decay [default: 1e-4]')
+parser.add_argument('--lr', type=float, default=2e-4, help='initial learning rate')
+parser.add_argument('--decay_rate', type=float, default=1e-4, help='weight decay [default: 1e-4]')
 parser.add_argument('--n_steps', type=int, default=15, help='number of epochs to update learning rate')
 parser.add_argument('--gamma', type=float, default=0.5, help='gamma')
-parser.add_argument('--epoch', default=81, type=int, help='Epoch to run [default: 50]')
+parser.add_argument('--epoch', default=50, type=int, help='Epoch to run [default: 50]')
 
 parser.add_argument('--device', type=str, default='cuda:0')
 parser.add_argument('--num_workers', type=int, default=2, help='num workers of the Data Loader')

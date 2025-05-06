@@ -19,7 +19,7 @@
       <paths name="root@root@connect.westb.seetacloud.com:15551 password">
         <serverdata>
           <mappings>
-            <mapping deploy="/root/LF-SASR" local="$PROJECT_DIR$" />
+            <mapping deploy="/LF-SASR" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

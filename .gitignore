@@ -1,6 +1,6 @@
 output/*
 log/*
-input/*
+input/
 model/KernelNet.py
 model/module.py
 visualization
@@ -8,5 +8,4 @@ log_my
 !log/LF-DAnet_4xSR_paper.tar
 log_transfomer
 log_transfomer_2
-train_degradation.py
 pth/
