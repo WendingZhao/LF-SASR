@@ -1,6 +1,6 @@
 import argparse
 from utils.utility import *
-from model.SAnet_1 import Net
+from model.SAnet_epit import Net
 import numpy as np
 import imageio
 import torch
@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument("--patchsize", type=int, default=32, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument("--minibatch", type=int, default=20, help="LFs are cropped into patches to save GPU memory")
     parser.add_argument('--input_dir', type=str, default='./input/')
-    parser.add_argument('--save_path', type=str, default='../output_transformer/SASR_2/')
+    parser.add_argument('--save_path', type=str, default='./output/')
 
     return parser.parse_args()
 
@@ -26,7 +26,7 @@ def demo_test(cfg, sigma_range, noise_range):
 
     net = Net(cfg.upfactor, cfg.angRes)
     net.to(cfg.device)
-    model = torch.load('./log/SAnet_2_4xSR_epoch_68.tar', map_location={'cuda:1': cfg.device})
+    model = torch.load('./pth/SAnet_epit_4xSR_epoch_1000.tar', map_location={'cuda:0': cfg.device})
     net.load_state_dict(model['state_dict'])
 
     scene_list = os.listdir(cfg.input_dir)
@@ -133,8 +133,8 @@ if __name__ == '__main__':
     cfg = parse_args()
     # sigma_range = [0/4, 1/4, 2/4, 3/4, 4/4]
     # noise_range = [0/75, 15/75, 30/75, 45/75, 60/75]
-    sigma_range = [2/4]
-    noise_range = [30/75]
+    sigma_range = [0.665/4]
+    noise_range = [3.329/75]
     # sigma_range = [0/4]
     # noise_range = [0/75]
     demo_test(cfg, sigma_range, noise_range)

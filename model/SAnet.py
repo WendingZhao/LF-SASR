@@ -277,10 +277,18 @@ if __name__ == "__main__":
     total = sum([param.nelement() for param in net.parameters()])
     flops, params = profile(net, inputs=((input_lf, blur, noise), ))
 
+
+
+    print('   Total number of parameters: %.2fM' % (total / 1e6))
+
     print('   Number of parameters: %.2fM' % (params / 1e6)) #3.90M origin
     print('   Number of FLOPs: %.2fG' % (flops / 1e9)) # 263.10G origin
 
 '''
+   Number of parameters: 3.80M
+   Number of FLOPs: 263.10G
+   
+      Total number of parameters: 3.80M
    Number of parameters: 3.80M
    Number of FLOPs: 263.10G
 '''

@@ -208,6 +208,7 @@ if __name__ == "__main__":
     print('   Number of FLOPs: %.2fG' % (flops / 1e9))
 
 '''
+      Total number of parameters: 1.47M
    Number of parameters: 1.14M
    Number of FLOPs: 217.22G
 '''

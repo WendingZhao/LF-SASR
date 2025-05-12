@@ -167,6 +167,7 @@ def main(args):
         pass
     pass
 
+
 # 多一个args参数，相较于普通版
 def train(train_loader, device, net, criterion, optimizer,args):
     ''' training one epoch '''
@@ -197,7 +198,7 @@ def train(train_loader, device, net, criterion, optimizer,args):
             LF_degraded = LF_Bicubic(LF_degraded, scale=1/args.scale_factor)
             [LF_degraded, noise_levels] = add_noise(LF_degraded)
             # noise level (4,)
-
+            noise_levels[0]=0
             LF_input = LF_degraded
             LF_target = LF
             # info is a list of tensors [(4 21 21) (4,) (4,) ]
@@ -482,6 +483,7 @@ def main_test(args):
 
     ''' TEST on every dataset '''
     print('\nStart test...')
+
     with torch.no_grad():
         ''' Create Excel for PSNR/SSIM '''
         excel_file = ExcelFile()
@@ -509,6 +511,103 @@ def main_test(args):
         excel_file.write_sheet('ALL', 'Average', 'SSIM', ssim_mean)
         print('The mean psnr on testsets is %.5f, mean ssim is %.5f' % (psnr_mean, ssim_mean))
         excel_file.xlsx_file.save(str(result_dir) + '/evaluation.xlsx')
+
+    pass
+
+
+
+def main_test_epit_0(args):
+    ''' Create Dir for Save '''
+    _, _, result_dir = create_dir(args)
+    result_dir = result_dir.joinpath('TEST')
+    result_dir.mkdir(exist_ok=True)
+
+    ''' CPU or Cuda'''
+    device = torch.device(args.device)
+    if 'cuda' in args.device:
+        torch.cuda.set_device(device)
+
+    ''' DATA TEST LOADING '''
+    print('\nLoad Test Dataset ...')
+    test_Names, test_Loaders, length_of_tests = MultiTestSetDataLoader(args)
+    print("The number of test data is: %d" % length_of_tests)
+
+    ''' MODEL LOADING '''
+    print('\nModel Initial ...')
+    MODEL_PATH = 'model.' + args.task + '.' + args.model_name
+    MODEL = importlib.import_module(MODEL_PATH)
+    net = MODEL.get_model(args)
+
+    ''' Load Pre-Trained PTH '''
+    ckpt_path = args.path_pre_pth
+    checkpoint = torch.load(ckpt_path, map_location='cpu')
+
+    # 单/多gpu训练出现的module.?
+    try:
+        new_state_dict = OrderedDict()
+        for k, v in checkpoint['state_dict'].items():
+            name = 'module.' + k  # add `module.`
+            new_state_dict[name] = v
+        # load params
+        net.load_state_dict(new_state_dict)
+        print('Use pretrain model!')
+    except:
+        new_state_dict = OrderedDict()
+        for k, v in checkpoint['state_dict'].items():
+            new_state_dict[k] = v
+        # load params
+        net.load_state_dict(new_state_dict)
+        print('Use pretrain model!')
+        pass
+
+    net = net.to(device)
+    cudnn.benchmark = True
+
+    ''' Print Parameters '''
+    print('PARAMETER ...')
+    print(args)
+
+    ''' TEST on every dataset '''
+    print('\nStart test...')
+    for noise in [0, 15,50]: # defult=[0, 15, 50]
+        args.noise_test = noise
+        for sig in [0, 1.5,3]: # default=[0, 1.5, 3]
+            args.sig = sig
+            test_Names, test_Loaders, length_of_tests = MultiTestSetDataLoader(args)
+            with torch.no_grad():
+                ''' Create Excel for PSNR/SSIM '''
+                excel_file = ExcelFile()
+
+                psnr_list = []
+                ssim_list = []
+                for index, test_name in enumerate(test_Names):
+                    torch.cuda.empty_cache()
+                    test_loader = test_Loaders[index]
+
+                    save_dir = result_dir.joinpath(test_name)
+                    save_dir.mkdir(exist_ok=True)
+                    psnr, ssim = test(args, test_name, test_loader, net, excel_file, save_dir)
+
+                    # excel_file.write_sheet(test_name, 'Average', 'PSNR', psnr)
+                    # excel_file.write_sheet(test_name, 'Average', 'SSIM', ssim)
+                    # excel_file.add_count(2)
+
+                    psnr_list.append(psnr)
+                    ssim_list.append(ssim)
+
+                    print('Dataset--%15s,\t noise--%f, \t sig---%f, \t PSNR--%f, \t SSIM---%f' % (
+                        test_name, args.noise_test, sig, psnr, ssim))
+                    pass
+                psnr_mean = np.array(psnr_list).mean()
+                ssim_mean = np.array(ssim_list).mean()
+                # excel_file.write_sheet('ALL', 'Average', 'PSNR', psnr_mean)
+                # excel_file.write_sheet('ALL', 'Average', 'SSIM', ssim_mean)
+                print('The mean psnr on testsets is %.5f, mean ssim is %.5f(noise--%f,sig---%f)' % (psnr_mean, ssim_mean,args.noise_test,args.sig))
+                # logger.log_string('The mean psnr on testsets is %.5f, mean ssim is %.5f(noise--%f,sig---%f)' % (psnr_mean, ssim_mean,args.noise_test,args.sig))
+                # excel_file.xlsx_file.save(str(epoch_dir) + '/evaluation.xlsx')
+                pass
+            pass
+
 
     pass
 
@@ -566,9 +665,9 @@ def main_test_dm(args):
 
     ''' TEST on every dataset '''
     print('\nStart test...')
-    for noise in [0, 15]: # defult=[0, 15, 50]
+    for noise in [0, 15,50]: # defult=[0, 15, 50]
         args.noise_test = noise
-        for sig in [0, 1.5]: # default=[0, 1.5, 3]
+        for sig in [0, 1.5,3]: # default=[0, 1.5, 3]
             args.sig = sig
             test_Names, test_Loaders, length_of_tests = MultiTestSetDataLoader(args)
             with torch.no_grad():

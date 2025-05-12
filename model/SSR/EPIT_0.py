@@ -376,7 +376,7 @@ if __name__ == "__main__":
     angRes = 5
     factor = 4
 
-    batch_size=4
+    batch_size=1
     from option import args
 
     net = get_model(args)
@@ -408,6 +408,9 @@ if __name__ == "__main__":
    Number of FLOPs: 217.22G
    
    the modified
-    Number of parameters: 1.41M
+
+   
+      Total number of parameters: 1.73M
+   Number of parameters: 1.41M
    Number of FLOPs: 219.37G
 '''

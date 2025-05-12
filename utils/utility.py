@@ -23,7 +23,10 @@ def save_ckpt(args, net, idx_epoch):
 
 
 def cal_metrics(label, out):
+    '''
 
+    this is method of dmnet
+    '''
     U, V, C, H, W = label.size()
 
     # cal the ycbcr

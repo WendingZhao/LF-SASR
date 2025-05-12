@@ -6,12 +6,13 @@ DMnet中的test val train分开不太清晰
 
 '''
 
-
+from tqdm import tqdm
 import argparse
 import torch.backends.cudnn as cudnn
 from utils.utility import *
 from utils.dataloader import *
-from model.SAnet_0 import Net
+from model.SAnet_epit import Net # this is for sasr_dmnetbased
+# from model.SAnet import Net # this is for dmnet
 from numpy import random
 
 parser = argparse.ArgumentParser()
@@ -20,7 +21,8 @@ parser.add_argument('--num_workers', type=int, default=4)
 parser.add_argument('--model_name', type=str, default='LF-DAnet')
 parser.add_argument("--angRes", type=int, default=5, help="angular resolution")
 parser.add_argument("--upfactor", type=int, default=4, help="upscale factor")
-parser.add_argument('--model_path', type=str, default='./pth/SAnet_epit_4xSR_epoch_1000.tar')
+parser.add_argument('--model_path', type=str, default='./pth/SAnet_epit_4xSR_epoch_1000.tar')# this is for sasr_dmnetbased
+# parser.add_argument('--model_path', type=str, default='./log/LF-DAnet_3xSR_paper.tar')
 parser.add_argument('--crop', type=bool, default=True)
 parser.add_argument("--patchsize_test", type=int, default=32, help="patchsize of LR images for inference")
 parser.add_argument("--minibatch_test", type=int, default=10, help="size of minibatch for inference")
@@ -43,6 +45,7 @@ def train(args):
         for sig in [0, 1.5,3]:
             args.sig = sig
             test_Names, test_Loaders, length_of_tests = MultiTestSetDataLoader(args)
+
             for index, test_name in enumerate(test_Names):
                 torch.cuda.empty_cache()
                 test_loader = test_Loaders[index]
@@ -54,7 +57,7 @@ def train(args):
 def valid(test_loader, net):
     psnr_iter_test = []
     ssim_iter_test = []
-    for idx_iter, (data, label, sigma, noise_level) in (enumerate(test_loader)):
+    for idx_iter, (data, label, sigma, noise_level) in tqdm((enumerate(test_loader)),total=len(test_loader), ncols=70):
 
 
         gt_blur = sigma.unsqueeze(1).unsqueeze(1).repeat(1, 1, args.angRes, args.angRes) / 4
