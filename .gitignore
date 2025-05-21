@@ -6,8 +6,9 @@ model/module.py
 visualization
 log_my
 !log/LF-DAnet_4xSR_paper.tar
-log_transfomer
-log_transfomer_2
+
 pth/*
 !pth/EPIT_0_5x5_4x_epoch_64_model.pth
 !pth/SAnet_epit_4xSR_epoch_1000.tar
+.git
+.idea
